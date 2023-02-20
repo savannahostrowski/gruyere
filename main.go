@@ -156,6 +156,7 @@ func renderTitle() {
 	fmt.Println(docStyle.Render(doc.String()))
 }
 
+// Via https://github.com/charmbracelet/lipgloss/blob/776c15f0da16d2b1058a079ec6a08a2e1170d721/examples/layout/main.go#L338
 func colorGrid(xSteps, ySteps int) [][]string {
 	x0y0, _ := colorful.Hex("#F25D94")
 	x1y0, _ := colorful.Hex("#EDFF82")
