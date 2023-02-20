@@ -1,5 +1,7 @@
-# Gruyere
-A tiny program for viewing + killing ports. Built with https://github.com/charmbracelet/bubbletea and https://github.com/charmbracelet/lipgloss
+# Gruyere 🧀
+A tiny program for viewing + killing ports. Built with https://github.com/charmbracelet/bubbletea and https://github.com/charmbracelet/lipgloss.
+
+It's called "Gruyere" because ports reminded me of holes and Gruyere is a cheese with many holes! 🧀
 
 ## TODOs
 - [ ] View all ports listening and list PID, user, port and program
