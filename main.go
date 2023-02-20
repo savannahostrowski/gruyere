@@ -19,13 +19,6 @@ type model struct {
 	table table.Model
 }
 
-type proc struct {
-	pid  string
-	user string
-	port string
-	comm string
-}
-
 func (m model) Init() tea.Cmd { return nil }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -56,14 +49,22 @@ func (m model) View() string {
 }
 
 func main() {
-	cmd := "lsof -i -P -n | grep LISTEN | awk '{print $2, $3, $9, $1}'"
-	out, err := exec.Command("bash", "-c", cmd).Output()
+	out, err := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
 	str_stdout := string(out)
 
 	procs := strings.Split(str_stdout, "\n")
 	var rows []table.Row
-	for _, proc := range procs {
-		rows = append(rows, strings.Fields(proc))
+	for i, proc := range procs {
+		if len(proc) == 0 || i == 0{ 
+			continue
+		}
+		pieces := strings.Fields(proc)
+		pid := pieces[1]
+		user := pieces[2]
+		port := pieces[8]
+		command := pieces[0]
+
+		rows = append(rows, []string{pid, user, port, command})
 	}
 
 	if err != nil {
