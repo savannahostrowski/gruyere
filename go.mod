@@ -6,6 +6,8 @@ require github.com/charmbracelet/bubbletea v0.23.2
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
+	github.com/charmbracelet/log v0.1.1 // indirect
+	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/sahilm/fuzzy v0.1.0 // indirect
 )
 

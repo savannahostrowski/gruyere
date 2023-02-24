@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/lucasb-eyer/go-colorful"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 var baseStyle = lipgloss.NewStyle().
@@ -56,17 +57,20 @@ var (
 				Background(lipgloss.Color("#F25D94")).
 				MarginRight(2).
 				Underline(true)
-				
+
 	docStyle = lipgloss.NewStyle().Padding(1, 2, 1, 2)
 )
 
 type item struct {
-	title, desc string
+	title string
+	desc  string
+	pid   string
 }
 
 func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
+func (i item) GetPid() string      { return i.pid }
 
 type model struct {
 	list         list.Model
@@ -75,6 +79,7 @@ type model struct {
 }
 
 var doc = strings.Builder{}
+var width int
 
 func (m model) Init() tea.Cmd {
 	renderTitle()
@@ -87,15 +92,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+
+		// Select a port
 		if msg.String() == "enter" {
 			if m.selectedPort == "" {
 				port := m.list.SelectedItem().FilterValue()
 				m.selectedPort = port
 			} else {
+				// If accepted killing the port, grab PID + execute killPort()
 				if m.activeButton == "yes" {
-					killPort(m)
-					m.selectedPort = ""
+					m.list.ResetFilter()
+					rgx := regexp.MustCompile(`\((.*?)\)`)
+					pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
+					killPort(pid)
 				}
+				// In all cases, reset selected port at the end
+				m.selectedPort = ""
 			}
 		}
 
@@ -109,6 +121,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
+		width = msg.Width
 		m.list.SetSize(msg.Width-h, msg.Height-v)
 	}
 
@@ -117,48 +130,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func killPort(m model) {
-	fmt.Println(m.selectedPort)
-}
-
 func (m model) View() string {
 	if m.selectedPort != "" {
 		return confirmationView(m)
 	}
-	// doc.WriteString(renderTitle() + "\n\n")
 	doc.WriteString(docStyle.Render(m.list.View()))
 
 	return doc.String()
-}
-
-func confirmationView(m model) string {
-	width, _, _ := terminal.GetSize(0)
-
-	var okButton, cancelButton string
-
-	if m.activeButton == "yes" {
-		okButton = activeButtonStyle.Render("Yes")
-		cancelButton = buttonStyle.
-		Render("No, take me back")
-	} else {
-		okButton = buttonStyle.Render("Yes")
-		cancelButton = activeButtonStyle.
-		Render("No, take me back")
-	}
-
-	qStr := fmt.Sprintf("Are you sure you want to kill port %s", m.selectedPort)
-	question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).Render(qStr)
-	buttons := lipgloss.JoinHorizontal(lipgloss.Top, okButton, cancelButton)
-	ui := lipgloss.JoinVertical(lipgloss.Center, question, buttons)
-
-	dialog := lipgloss.Place(width, 9,
-		lipgloss.Center, lipgloss.Center,
-		dialogBoxStyle.Render(ui),
-		lipgloss.WithWhitespaceChars(" "),
-		lipgloss.WithWhitespaceForeground(subtle),
-	)
-
-	return baseStyle.Render(dialog + "\n\n")
 }
 
 func main() {
@@ -176,16 +154,15 @@ func main() {
 		user := pieces[2]
 		port := strings.Split(pieces[8], ":")[1]
 		command := pieces[0]
-		fmt.Println(port)
 
-		titleStr := fmt.Sprintf("Port: %s", port)
-		descStr := fmt.Sprintf("PID: %s, User: %s, Command: %s", pid, user, command)
+		titleStr := fmt.Sprintf("Port: %s (%s)", port, pid)
+		descStr := fmt.Sprintf("User: %s, Command: %s", user, command)
 
 		processes = append(processes, item{title: titleStr, desc: descStr})
 	}
 
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Error(err.Error())
 	}
 	m := model{
 		list:         list.New(processes, list.NewDefaultDelegate(), 0, 0),
@@ -197,9 +174,46 @@ func main() {
 	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
-		fmt.Println("Error running program:", err)
+		log.Fatal("Error running program:", err)
 		os.Exit(1)
 	}
+}
+
+func killPort(pid string) {
+	cmd := fmt.Sprintf("kill -9 %s", pid)
+	fmt.Println(cmd)
+	_, err := exec.Command(cmd).CombinedOutput()
+	if err != nil {
+		log.Error("Could not grab processes on listening ports")
+	}
+}
+
+func confirmationView(m model) string {
+	var okButton, cancelButton string
+
+	if m.activeButton == "yes" {
+		okButton = activeButtonStyle.Render("Yes")
+		cancelButton = buttonStyle.
+			Render("No, take me back")
+	} else {
+		okButton = buttonStyle.Render("Yes")
+		cancelButton = activeButtonStyle.
+			Render("No, take me back")
+	}
+
+	qStr := fmt.Sprintf("Are you sure you want to kill port %s", m.selectedPort)
+	question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).Render(qStr)
+	buttons := lipgloss.JoinHorizontal(lipgloss.Top, okButton, cancelButton)
+	ui := lipgloss.JoinVertical(lipgloss.Center, question, buttons)
+
+	dialog := lipgloss.Place(width, 9,
+		lipgloss.Center, lipgloss.Center,
+		dialogBoxStyle.Render(ui),
+		lipgloss.WithWhitespaceChars(" "),
+		lipgloss.WithWhitespaceForeground(subtle),
+	)
+
+	return baseStyle.Render(dialog + "\n\n")
 }
 
 func renderTitle() {
