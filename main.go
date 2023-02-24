@@ -6,10 +6,11 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lucasb-eyer/go-colorful"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var baseStyle = lipgloss.NewStyle().
@@ -32,12 +33,45 @@ var (
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderTop(true).
 			BorderForeground(subtle)
+
+	// Dialog.
+	dialogBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#874BFD")).
+			Padding(1, 0).
+			BorderTop(true).
+			BorderLeft(true).
+			BorderRight(true).
+			BorderBottom(true)
+
+	buttonStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFF7DB")).
+			Background(lipgloss.Color("#888B7E")).
+			Padding(0, 3).
+			MarginTop(1).
+			MarginRight(2)
+
+	activeButtonStyle = buttonStyle.Copy().
+				Foreground(lipgloss.Color("#FFF7DB")).
+				Background(lipgloss.Color("#F25D94")).
+				MarginRight(2).
+				Underline(true)
+				
 	docStyle = lipgloss.NewStyle().Padding(1, 2, 1, 2)
 )
 
+type item struct {
+	title, desc string
+}
+
+func (i item) Title() string       { return i.title }
+func (i item) Description() string { return i.desc }
+func (i item) FilterValue() string { return i.title }
+
 type model struct {
-	table        table.Model
+	list         list.Model
 	selectedPort string
+	activeButton string
 }
 
 var doc = strings.Builder{}
@@ -48,31 +82,83 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc":
-			if m.table.Focused() {
-				m.table.Blur()
-			} else {
-				m.table.Focus()
-			}
-		case "q", "ctrl+c":
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
-		case "enter":
-			m.selectedPort = m.table.SelectedRow()[0]
-			return m, tea.Batch(
-				tea.Printf(m.table.SelectedRow()[0]),
-			)
 		}
+		if msg.String() == "enter" {
+			if m.selectedPort == "" {
+				port := m.list.SelectedItem().FilterValue()
+				m.selectedPort = port
+			} else {
+				if m.activeButton == "yes" {
+					killPort(m)
+					m.selectedPort = ""
+				}
+			}
+		}
+
+		// If we reach the dialog to confirm killing a port (and therefore have selected a port)
+		if msg.String() == "right" && m.activeButton != "no" {
+			m.activeButton = "no"
+		}
+		if msg.String() == "left" && m.activeButton == "no" {
+			m.activeButton = "yes"
+		}
+
+	case tea.WindowSizeMsg:
+		h, v := docStyle.GetFrameSize()
+		m.list.SetSize(msg.Width-h, msg.Height-v)
 	}
-	m.table, cmd = m.table.Update(msg)
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
 	return m, cmd
 }
 
+func killPort(m model) {
+	fmt.Println(m.selectedPort)
+}
+
 func (m model) View() string {
-	return baseStyle.Render(m.table.View()) + "\n"
+	if m.selectedPort != "" {
+		return confirmationView(m)
+	}
+	// doc.WriteString(renderTitle() + "\n\n")
+	doc.WriteString(docStyle.Render(m.list.View()))
+
+	return doc.String()
+}
+
+func confirmationView(m model) string {
+	width, _, _ := terminal.GetSize(0)
+
+	var okButton, cancelButton string
+
+	if m.activeButton == "yes" {
+		okButton = activeButtonStyle.Render("Yes")
+		cancelButton = buttonStyle.
+		Render("No, take me back")
+	} else {
+		okButton = buttonStyle.Render("Yes")
+		cancelButton = activeButtonStyle.
+		Render("No, take me back")
+	}
+
+	qStr := fmt.Sprintf("Are you sure you want to kill port %s", m.selectedPort)
+	question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).Render(qStr)
+	buttons := lipgloss.JoinHorizontal(lipgloss.Top, okButton, cancelButton)
+	ui := lipgloss.JoinVertical(lipgloss.Center, question, buttons)
+
+	dialog := lipgloss.Place(width, 9,
+		lipgloss.Center, lipgloss.Center,
+		dialogBoxStyle.Render(ui),
+		lipgloss.WithWhitespaceChars(" "),
+		lipgloss.WithWhitespaceForeground(subtle),
+	)
+
+	return baseStyle.Render(dialog + "\n\n")
 }
 
 func main() {
@@ -80,7 +166,7 @@ func main() {
 	str_stdout := string(out)
 
 	procs := strings.Split(str_stdout, "\n")
-	var rows []table.Row
+	var processes []list.Item
 	for i, proc := range procs {
 		if len(proc) == 0 || i == 0 {
 			continue
@@ -88,44 +174,29 @@ func main() {
 		pieces := strings.Fields(proc)
 		pid := pieces[1]
 		user := pieces[2]
-		port := pieces[8]
+		port := strings.Split(pieces[8], ":")[1]
 		command := pieces[0]
+		fmt.Println(port)
 
-		rows = append(rows, []string{pid, user, port, command})
+		titleStr := fmt.Sprintf("Port: %s", port)
+		descStr := fmt.Sprintf("PID: %s, User: %s, Command: %s", pid, user, command)
+
+		processes = append(processes, item{title: titleStr, desc: descStr})
 	}
 
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-
-	columns := []table.Column{
-		{Title: "PID", Width: 10},
-		{Title: "User", Width: 10},
-		{Title: "Port", Width: 20},
-		{Title: "Command", Width: 10},
+	m := model{
+		list:         list.New(processes, list.NewDefaultDelegate(), 0, 0),
+		selectedPort: "",
+		activeButton: "yes",
 	}
+	m.list.SetStatusBarItemName("process", "processes")
+	m.list.SetShowTitle(false)
+	p := tea.NewProgram(m)
 
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(rows),
-		table.WithFocused(true),
-		table.WithHeight(7),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
-
-	m := model{t, ""}
-	if _, err := tea.NewProgram(m).Run(); err != nil {
+	if _, err := p.Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}
@@ -153,6 +224,7 @@ func renderTitle() {
 
 	row := lipgloss.JoinHorizontal(lipgloss.Top, title.String(), desc)
 	doc.WriteString(row + "\n\n")
+
 	fmt.Println(docStyle.Render(doc.String()))
 }
 
