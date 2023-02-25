@@ -14,9 +14,7 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-var baseStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("240"))
+var baseStyle = lipgloss.NewStyle()
 
 var (
 	subtle     = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
@@ -54,7 +52,7 @@ var (
 
 	activeButtonStyle = buttonStyle.Copy().
 				Foreground(lipgloss.Color("#FFF7DB")).
-				Background(lipgloss.Color("#F25D94")).
+				Background(lipgloss.AdaptiveColor{Light: "#EE6FF8", Dark: "#EE6FF8"}).
 				MarginRight(2).
 				Underline(true)
 
@@ -105,6 +103,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					rgx := regexp.MustCompile(`\((.*?)\)`)
 					pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
 					killPort(pid)
+					// Get running processes again when a process is killed
+					m.list.SetItems(getProcesses())
 				}
 				// In all cases, reset selected port at the end
 				m.selectedPort = ""
@@ -134,12 +134,30 @@ func (m model) View() string {
 	if m.selectedPort != "" {
 		return confirmationView(m)
 	}
-	doc.WriteString(docStyle.Render(m.list.View()))
 
-	return doc.String()
+	return docStyle.Render(m.list.View())
 }
 
 func main() {
+	processes := getProcesses()
+
+	m := model{
+		list:         list.New(processes, list.NewDefaultDelegate(), 0, 0),
+		selectedPort: "",
+		activeButton: "yes",
+	}
+	m.list.SetStatusBarItemName("process", "processes")
+	m.list.SetShowTitle(false)
+
+	p := tea.NewProgram(m)
+
+	if _, err := p.Run(); err != nil {
+		log.Fatal("Error running program:", err)
+		os.Exit(1)
+	}
+}
+
+func getProcesses() []list.Item {
 	out, err := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
 	str_stdout := string(out)
 
@@ -164,25 +182,11 @@ func main() {
 	if err != nil {
 		log.Error(err.Error())
 	}
-	m := model{
-		list:         list.New(processes, list.NewDefaultDelegate(), 0, 0),
-		selectedPort: "",
-		activeButton: "yes",
-	}
-	m.list.SetStatusBarItemName("process", "processes")
-	m.list.SetShowTitle(false)
-	p := tea.NewProgram(m)
-
-	if _, err := p.Run(); err != nil {
-		log.Fatal("Error running program:", err)
-		os.Exit(1)
-	}
+	return processes
 }
 
 func killPort(pid string) {
-	cmd := fmt.Sprintf("kill -9 %s", pid)
-	fmt.Println(cmd)
-	_, err := exec.Command(cmd).CombinedOutput()
+	_, err := exec.Command("kill", "-9", pid).CombinedOutput()
 	if err != nil {
 		log.Error("Could not grab processes on listening ports")
 	}
@@ -201,7 +205,7 @@ func confirmationView(m model) string {
 			Render("No, take me back")
 	}
 
-	qStr := fmt.Sprintf("Are you sure you want to kill port %s", m.selectedPort)
+	qStr := fmt.Sprintf("Are you sure you want to kill port %s?", m.selectedPort)
 	question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).Render(qStr)
 	buttons := lipgloss.JoinHorizontal(lipgloss.Top, okButton, cancelButton)
 	ui := lipgloss.JoinVertical(lipgloss.Center, question, buttons)
@@ -244,7 +248,7 @@ func renderTitle() {
 
 // Via https://github.com/charmbracelet/lipgloss/blob/776c15f0da16d2b1058a079ec6a08a2e1170d721/examples/layout/main.go#L338
 func colorGrid(xSteps, ySteps int) [][]string {
-	x0y0, _ := colorful.Hex("#F25D94")
+	x0y0, _ := colorful.Hex("#EE6FF8")
 	x1y0, _ := colorful.Hex("#EDFF82")
 	x0y1, _ := colorful.Hex("#643AFF")
 	x1y1, _ := colorful.Hex("#14F9D5")
