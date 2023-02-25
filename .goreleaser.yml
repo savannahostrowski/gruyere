@@ -1,0 +1,25 @@
+project_name: "gruyere"
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - main: ./main.go
+    binary: gruyere
+    goos:
+      - linux
+      - darwin
+    goarm:
+      - "7"
+
+nfpms:
+  - maintainer: Savannah Ostrowski <savannahostrowski@gmail.com>
+    description: A tiny (and pretty) program for viewing + killing listening ports
+    homepage: https://github.com/savannahostrowski/gruyere
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
