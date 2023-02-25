@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/lucasb-eyer/go-colorful"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var baseStyle = lipgloss.NewStyle()
@@ -37,7 +38,7 @@ var (
 	dialogBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#874BFD")).
-			Padding(1, 0).
+			Padding(1, 2).
 			BorderTop(true).
 			BorderLeft(true).
 			BorderRight(true).
@@ -77,7 +78,6 @@ type model struct {
 }
 
 var doc = strings.Builder{}
-var width int
 
 func (m model) Init() tea.Cmd {
 	renderTitle()
@@ -121,7 +121,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
-		width = msg.Width
 		m.list.SetSize(msg.Width-h, msg.Height-v)
 	}
 
@@ -140,9 +139,14 @@ func (m model) View() string {
 
 func main() {
 	processes := getProcesses()
+	width, height, err := terminal.GetSize(0)
+
+	if err != nil {
+		log.Error("Could not get terminal dimensions")
+	}
 
 	m := model{
-		list:         list.New(processes, list.NewDefaultDelegate(), 0, 0),
+		list:         list.New(processes, list.NewDefaultDelegate(), width, height),
 		selectedPort: "",
 		activeButton: "yes",
 	}
@@ -173,7 +177,7 @@ func getProcesses() []list.Item {
 		port := strings.Split(pieces[8], ":")[1]
 		command := pieces[0]
 
-		titleStr := fmt.Sprintf("Port: %s (%s)", port, pid)
+		titleStr := fmt.Sprintf("Port :%s (PID %s)", port, pid)
 		descStr := fmt.Sprintf("User: %s, Command: %s", user, command)
 
 		processes = append(processes, item{title: titleStr, desc: descStr})
@@ -188,11 +192,12 @@ func getProcesses() []list.Item {
 func killPort(pid string) {
 	_, err := exec.Command("kill", "-9", pid).CombinedOutput()
 	if err != nil {
-		log.Error("Could not grab processes on listening ports")
+		log.Error("Could not kill process")
 	}
 }
 
 func confirmationView(m model) string {
+	width, _, _ := terminal.GetSize(0)
 	var okButton, cancelButton string
 
 	if m.activeButton == "yes" {
@@ -211,7 +216,7 @@ func confirmationView(m model) string {
 	ui := lipgloss.JoinVertical(lipgloss.Center, question, buttons)
 
 	dialog := lipgloss.Place(width, 9,
-		lipgloss.Center, lipgloss.Center,
+		lipgloss.Left, lipgloss.Center,
 		dialogBoxStyle.Render(ui),
 		lipgloss.WithWhitespaceChars(" "),
 		lipgloss.WithWhitespaceForeground(subtle),
