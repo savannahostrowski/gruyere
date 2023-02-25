@@ -5,14 +5,16 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/lucasb-eyer/go-colorful"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 var baseStyle = lipgloss.NewStyle()
@@ -130,29 +132,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	// If there's a selected port, render the confirmation dialog
 	if m.selectedPort != "" {
 		return confirmationView(m)
 	}
 
+	m.list.SetHeight(20)
+	// Otherwise, we just show the list of processes
 	return docStyle.Render(m.list.View())
 }
 
 func main() {
+	// Get processes running on listening ports
 	processes := getProcesses()
-	width, height, err := terminal.GetSize(0)
 
-	if err != nil {
-		log.Error("Could not get terminal dimensions")
-	}
-
+	//Initialize the model
 	m := model{
-		list:         list.New(processes, list.NewDefaultDelegate(), width, height),
+		list:         list.New(processes, list.NewDefaultDelegate(), 0, 0),
 		selectedPort: "",
 		activeButton: "yes",
 	}
+
 	m.list.SetStatusBarItemName("process", "processes")
+	//Hide default list title + styles
 	m.list.SetShowTitle(false)
 
+	// Let 'er rip
 	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
@@ -177,7 +182,7 @@ func getProcesses() []list.Item {
 		port := strings.Split(pieces[8], ":")[1]
 		command := pieces[0]
 
-		titleStr := fmt.Sprintf("Port :%s (PID %s)", port, pid)
+		titleStr := fmt.Sprintf("Port :%s (%s)", port, pid)
 		descStr := fmt.Sprintf("User: %s, Command: %s", user, command)
 
 		processes = append(processes, item{title: titleStr, desc: descStr})
@@ -190,14 +195,15 @@ func getProcesses() []list.Item {
 }
 
 func killPort(pid string) {
-	_, err := exec.Command("kill", "-9", pid).CombinedOutput()
+	pidInt, err := strconv.Atoi(pid)
+	syscall.Kill(pidInt, syscall.SIGKILL)
 	if err != nil {
 		log.Error("Could not kill process")
 	}
 }
 
 func confirmationView(m model) string {
-	width, _, _ := terminal.GetSize(0)
+	width, _, _ := term.GetSize(0)
 	var okButton, cancelButton string
 
 	if m.activeButton == "yes" {

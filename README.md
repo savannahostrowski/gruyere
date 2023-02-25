@@ -1,9 +1,18 @@
-# Gruyere 🧀
-A tiny program for viewing + killing ports. Built with https://github.com/charmbracelet/bubbletea and https://github.com/charmbracelet/lipgloss.
+# gruyere 🧀
+A tiny program for viewing + killing ports. 
 
-It's called "Gruyere" because ports reminded me of holes and Gruyere is a cheese with many holes! 🧀
-![](gruyere.png)
-## TODOs
-- [x] View all ports listening and list PID, user, port and program
-- [ ] Select a port to kill it (with confirmation)
-- [ ] Search for port (fuzzy matching? Good for if you have a lot of stuff running?)
+It's called "gruyere" because ports reminded me of holes and gruyere is a cheese with many holes! 🧀
+
+gruyere makes use of the wonderful [Charm](https://github.com/charmbracelet) libraries:
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea)
+- [Bubbles](https://github.com/charmbracelet/bubbles)
+- [Lip Gloss](https://github.com/charmbracelet/lipgloss)
+- [Log](https://github.com/charmbracelet/log)
+
+
+![](gruyere.gif)
+
+
+## Requirements
+To build:
+- Go 1.20+
