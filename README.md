@@ -1,5 +1,7 @@
 # gruyere 🧀
-A tiny program for viewing + killing ports. 
+A tiny (and pretty) program for viewing + killing ports. 
+
+I created this program so that I could stop trying to remember the command and all the right flags to view processes on listening ports. This program really just wraps `lsof -i -P -n -sTCP:LISTEN` to get the processes and their PIDs. You can select a process and also kill it using the TUI. The process list has filtering enabled as well (useful if you've got a lot going on; just hit `/` and search by port or PID).
 
 It's called "gruyere" because ports reminded me of holes and gruyere is a cheese with many holes! 🧀
 

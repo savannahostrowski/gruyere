@@ -71,7 +71,6 @@ type item struct {
 func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
-func (i item) GetPid() string      { return i.pid }
 
 type model struct {
 	list         list.Model
@@ -168,9 +167,9 @@ func main() {
 
 func getProcesses() []list.Item {
 	out, err := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
-	str_stdout := string(out)
+	strStdout := string(out)
 
-	procs := strings.Split(str_stdout, "\n")
+	procs := strings.Split(strStdout, "\n")
 	var processes []list.Item
 	for i, proc := range procs {
 		if len(proc) == 0 || i == 0 {
@@ -196,10 +195,14 @@ func getProcesses() []list.Item {
 
 func killPort(pid string) {
 	pidInt, err := strconv.Atoi(pid)
+	if err != nil {
+		log.Error("Could not convert to process pid to int")
+	}
 	syscall.Kill(pidInt, syscall.SIGKILL)
 	if err != nil {
 		log.Error("Could not kill process")
 	}
+	
 }
 
 func confirmationView(m model) string {
@@ -232,10 +235,8 @@ func confirmationView(m model) string {
 }
 
 func renderTitle() {
-	var (
-		colors = colorGrid(1, 5)
-		title  strings.Builder
-	)
+	colors := colorGrid(1, 5)
+	var title strings.Builder
 
 	for i, v := range colors {
 		const offset = 2
