@@ -1,4 +1,4 @@
-module gruyere
+module github.com/savannahostrowski/gruyere
 
 go 1.20
 
