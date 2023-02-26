@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
@@ -111,6 +112,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedPort = ""
 			}
 		}
+		if msg.String() == "r" {
+			m.list.SetItems(getProcesses())
+		}
 
 		// If we reach the dialog to confirm killing a port (and therefore have selected a port)
 		if msg.String() == "right" && m.activeButton != "no" {
@@ -155,6 +159,16 @@ func main() {
 	m.list.SetStatusBarItemName("process", "processes")
 	//Hide default list title + styles
 	m.list.SetShowTitle(false)
+	reloadKey := func() []key.Binding {
+		return []key.Binding{
+			key.NewBinding(
+				key.WithKeys("r"),
+				key.WithHelp("r", "reload"),
+			),
+		}
+	}
+	m.list.AdditionalShortHelpKeys = reloadKey
+	m.list.AdditionalFullHelpKeys = reloadKey
 
 	// Let 'er rip
 	p := tea.NewProgram(m)
