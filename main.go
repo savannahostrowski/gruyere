@@ -180,7 +180,7 @@ func tickCmd() tea.Cmd {
 }
 
 func getProcesses() []list.Item {
-	out, err := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
+	out, _ := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
 	strStdout := string(out)
 
 	procs := strings.Split(strStdout, "\n")
@@ -201,9 +201,6 @@ func getProcesses() []list.Item {
 		processes = append(processes, item{title: titleStr, desc: descStr})
 	}
 
-	if err != nil {
-		log.Error(err.Error())
-	}
 	return processes
 }
 
