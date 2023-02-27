@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -80,9 +81,11 @@ type model struct {
 
 var doc = strings.Builder{}
 
+type tickMsg time.Time
+
 func (m model) Init() tea.Cmd {
 	renderTitle()
-	return nil
+	return tickCmd()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -119,6 +122,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "left" && m.activeButton == "no" {
 			m.activeButton = "yes"
 		}
+
+	case tickMsg:
+		cmd := m.list.SetItems(getProcesses())
+		return m, tea.Batch(tickCmd(), cmd)
 
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
@@ -165,6 +172,13 @@ func main() {
 	}
 }
 
+// Used to refresh the running processes on listening ports in the list view
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
 func getProcesses() []list.Item {
 	out, err := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
 	strStdout := string(out)
@@ -202,7 +216,6 @@ func killPort(pid string) {
 	if err != nil {
 		log.Error("Could not kill process")
 	}
-	
 }
 
 func confirmationView(m model) string {
