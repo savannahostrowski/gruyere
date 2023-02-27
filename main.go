@@ -66,7 +66,6 @@ var (
 type item struct {
 	title string
 	desc  string
-	pid   string
 }
 
 func (i item) Title() string       { return i.title }
