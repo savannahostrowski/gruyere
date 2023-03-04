@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -78,6 +79,13 @@ type model struct {
 	list         list.Model
 	selectedPort string
 	activeButton string
+}
+
+type WindowsProcesses []struct {
+	OwningProcess int    `json:"OwningProcess"`
+	LocalPort     int    `json:"LocalPort"`
+	Username      string `json:"Username"`
+	Command       string `json:"Command"`
 }
 
 var doc = strings.Builder{}
@@ -226,9 +234,24 @@ func executePowershellCmd() []byte {
 }
 
 func getWindowsProcesses() []list.Item {
-	_ = executePowershellCmd()
+	out := executePowershellCmd()
+	var winProcesses WindowsProcesses
+	if err := json.Unmarshal(out, &winProcesses); err != nil {
+		log.Error(err)
+	}
+	var processes []list.Item
+	for _, proc := range winProcesses {
+		pid := proc.OwningProcess
+		port := proc.LocalPort
+		user := proc.Username
+		command := proc.Command
 
-	return []list.Item{}
+		titleStr := fmt.Sprintf("Port :%d (%d)", port, pid)
+		descStr := fmt.Sprintf("User: %s, Command: %s", user, command)
+
+		processes = append(processes, item{title: titleStr, desc: descStr})
+	}
+	return processes
 }
 
 func getProcesses() []list.Item {
