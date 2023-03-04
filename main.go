@@ -158,7 +158,7 @@ func (m model) View() string {
 
 func main() {
 	// Get processes running on listening ports
-	processes := getProcesses()
+	processes = getProcesses()
 
 	//Initialize the model
 	m := model{
