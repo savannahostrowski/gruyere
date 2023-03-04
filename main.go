@@ -128,7 +128,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		if numOfGoroutines == 0 {
 			numOfGoroutines = runtime.NumGoroutine()
-		} else if numOfGoroutines == runtime.NumGoroutine() {
+		} else if numOfGoroutines >= runtime.NumGoroutine() {
 			go func() {
 				processes = getProcesses()
 			}()
