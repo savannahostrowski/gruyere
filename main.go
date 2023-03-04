@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -60,7 +61,9 @@ var (
 				MarginRight(2).
 				Underline(true)
 
-	docStyle = lipgloss.NewStyle().Padding(1, 2, 1, 2)
+	docStyle        = lipgloss.NewStyle().Padding(1, 2, 1, 2)
+	processes       []list.Item
+	numOfGoroutines = 0
 )
 
 type item struct {
@@ -123,8 +126,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tickMsg:
-		cmd := m.list.SetItems(getProcesses())
-		return m, tea.Batch(tickCmd(), cmd)
+		if numOfGoroutines == 0 {
+			numOfGoroutines = runtime.NumGoroutine()
+		} else if numOfGoroutines == runtime.NumGoroutine() {
+			go func() {
+				processes = getProcesses()
+			}()
+		}
+		return m, tea.Batch(tickCmd(), m.list.SetItems(processes))
 
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
