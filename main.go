@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -61,6 +63,7 @@ var (
 				Underline(true)
 
 	docStyle = lipgloss.NewStyle().Padding(1, 2, 1, 2)
+	asAdmin  = true
 )
 
 type item struct {
@@ -76,6 +79,13 @@ type model struct {
 	list         list.Model
 	selectedPort string
 	activeButton string
+}
+
+type WindowsProcesses []struct {
+	OwningProcess int    `json:"OwningProcess"`
+	LocalPort     int    `json:"LocalPort"`
+	Username      string `json:"Username"`
+	Command       string `json:"Command"`
 }
 
 var doc = strings.Builder{}
@@ -178,7 +188,7 @@ func tickCmd() tea.Cmd {
 	})
 }
 
-func getProcesses() []list.Item {
+func getUnixProcesses() []list.Item {
 	out, _ := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
 	strStdout := string(out)
 
@@ -203,12 +213,65 @@ func getProcesses() []list.Item {
 	return processes
 }
 
+func executePowershellCmd() []byte {
+	var pwshCommand string
+	// Powershell needs elevated privilege to run "Get-Process" with "-IncludeUserName" parameter
+	if asAdmin {
+		pwshCommand = "Get-NetTCPConnection -State Listen | ForEach-Object {$proc=Get-Process -Id $_.OwningProcess -IncludeUserName;[PSCustomObject]@{OwningProcess=$_.OwningProcess;LocalPort=$_.LocalPort;Command=if($proc){$proc.Path};Username=if($proc){$proc.UserName}}} | ConvertTo-Json"
+	} else {
+		pwshCommand = "Get-NetTCPConnection -State Listen | ForEach-Object {$proc=Get-Process -Id $_.OwningProcess;[PSCustomObject]@{OwningProcess=$_.OwningProcess;LocalPort=$_.LocalPort;Command=if($proc){$proc.Path};Username=if($proc){$proc.UserName}}} | ConvertTo-Json"
+	}
+	out, err := exec.Command("powershell.exe", "-NoLogo", "-Command", pwshCommand).CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(out), "requires elevated user rights") {
+			asAdmin = false
+			return executePowershellCmd()
+		} else {
+			log.Error(err)
+		}
+	}
+	return out
+}
+
+func getWindowsProcesses() []list.Item {
+	out := executePowershellCmd()
+	var winProcesses WindowsProcesses
+	if err := json.Unmarshal(out, &winProcesses); err != nil {
+		log.Error(err)
+	}
+	var processes []list.Item
+	for _, proc := range winProcesses {
+		pid := proc.OwningProcess
+		port := proc.LocalPort
+		user := proc.Username
+		command := proc.Command
+
+		titleStr := fmt.Sprintf("Port :%d (%d)", port, pid)
+		descStr := fmt.Sprintf("User: %s, Command: %s", user, command)
+
+		processes = append(processes, item{title: titleStr, desc: descStr})
+	}
+	return processes
+}
+
+func getProcesses() []list.Item {
+	if runtime.GOOS == "windows" {
+		return getWindowsProcesses()
+	} else {
+		return getUnixProcesses()
+	}
+}
+
 func killPort(pid string) {
 	pidInt, err := strconv.Atoi(pid)
 	if err != nil {
 		log.Error("Could not convert to process pid to int")
 	}
-	syscall.Kill(pidInt, syscall.SIGKILL)
+	proc, err := os.FindProcess(pidInt)
+	if err != nil {
+		log.Error(err)
+	}
+	err = proc.Signal(syscall.SIGKILL)
 	if err != nil {
 		log.Error("Could not kill process")
 	}
