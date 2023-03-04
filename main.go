@@ -182,7 +182,7 @@ func main() {
 
 // Used to refresh the running processes on listening ports in the list view
 func tickCmd() tea.Cmd {
-	return tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
+	return tea.Tick(time.Millisecond*600, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
