@@ -5,9 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"strconv"
+	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -88,6 +87,8 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
@@ -100,12 +101,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				port := m.list.SelectedItem().FilterValue()
 				m.selectedPort = port
 			} else {
-				// If accepted killing the port, grab PID + execute killPort()
+				// If accepted killing the port, grab PID + get an exec.Cmd for killing a port from killPortCmd()
 				if m.activeButton == "yes" {
-					m.list.ResetFilter()
 					rgx := regexp.MustCompile(`\((.*?)\)`)
 					pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
-					killPort(pid)
+
+					killCmd, err := killPortCmd(pid)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					// Wrap the exec.Cmd in a tea.Cmd and append to cmds []tea.Cmd which will be batched
+					cmds = append(cmds, tea.ExecProcess(killCmd, func(err error) tea.Msg {
+						return err
+					}))
+
+					m.list.ResetFilter()
+
 					// Get running processes again when a process is killed
 					m.list.SetItems(getProcesses())
 				}
@@ -133,7 +145,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) View() string {
@@ -203,15 +218,16 @@ func getProcesses() []list.Item {
 	return processes
 }
 
-func killPort(pid string) {
-	pidInt, err := strconv.Atoi(pid)
-	if err != nil {
-		log.Error("Could not convert to process pid to int")
+// returns a kill exec.Cmd for supported operating systems, otherwise an error.
+func killPortCmd(pid string) (*exec.Cmd, error) {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("kill", pid), nil
+	case "linux":
+		return exec.Command("kill", pid), nil
 	}
-	syscall.Kill(pidInt, syscall.SIGKILL)
-	if err != nil {
-		log.Error("Could not kill process")
-	}
+
+	return nil, fmt.Errorf("operating system not supported: %s", runtime.GOOS)
 }
 
 func confirmationView(m model) string {
