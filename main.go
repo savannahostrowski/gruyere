@@ -102,12 +102,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				// If accepted killing the port, grab PID + execute killPort()
 				if m.activeButton == "yes" {
-					m.list.ResetFilter()
 					rgx := regexp.MustCompile(`\((.*?)\)`)
 					pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
 					killPort(pid)
 					// Get running processes again when a process is killed
 					m.list.SetItems(getProcesses())
+					m.list.ResetFilter()
 				}
 				// In all cases, reset selected port at the end
 				m.selectedPort = ""
