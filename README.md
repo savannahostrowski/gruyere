@@ -7,12 +7,14 @@ It's called "gruyere" because ports reminded me of holes and gruyere is a cheese
 
 ![](gruyere.gif)
 
-
 gruyere makes use of the wonderful [Charm](https://github.com/charmbracelet) libraries:
 - [Bubble Tea](https://github.com/charmbracelet/bubbletea)
 - [Bubbles](https://github.com/charmbracelet/bubbles)
 - [Lip Gloss](https://github.com/charmbracelet/lipgloss)
 - [Log](https://github.com/charmbracelet/log)
+
+## Installation
+You can install the appropriate binary for your operating system by visiting the [Releases page](https://github.com/savannahostrowski/gruyere/releases).
 
 ## Requirements
 To build:
