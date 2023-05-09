@@ -208,6 +208,7 @@ func killPort(pid string) {
 	pidInt, err := strconv.Atoi(pid)
 	if err != nil {
 		log.Error("Could not convert to process pid to int")
+		return
 	}
 	err = syscall.Kill(pidInt, syscall.SIGKILL)
 	if err != nil {
