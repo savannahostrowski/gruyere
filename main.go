@@ -206,11 +206,11 @@ func getProcesses() []list.Item {
 func killPort(pid string) {
 	pidInt, err := strconv.Atoi(pid)
 	if err != nil {
-		log.Error("Could not convert to process pid to int")
+		log.Error("Could not convert to process pid to int - ", err)
 	}
-	syscall.Kill(pidInt, syscall.SIGKILL)
-	if err != nil {
-		log.Error("Could not kill process")
+
+	if err := syscall.Kill(pidInt, syscall.SIGKILL); err != nil {
+		log.Error("Could not kill process - ", err)
 	}
 }
 
