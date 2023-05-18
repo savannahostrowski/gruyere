@@ -115,10 +115,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// If we reach the dialog to confirm killing a port (and therefore have selected a port)
-		if msg.String() == "right" && m.activeButton != "no" {
+		if (msg.String() == "right" || msg.String() == "l") && m.activeButton != "no" {
 			m.activeButton = "no"
 		}
-		if msg.String() == "left" && m.activeButton == "no" {
+		if (msg.String() == "left" || msg.String() == "h") && m.activeButton == "no" {
 			m.activeButton = "yes"
 		}
 
