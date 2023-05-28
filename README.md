@@ -16,6 +16,5 @@ gruyere makes use of the wonderful [Charm](https://github.com/charmbracelet) lib
 ## Installation
 You can install the appropriate binary for your operating system by visiting the [Releases page](https://github.com/savannahostrowski/gruyere/releases).
 
-## Requirements
-To build:
-- Go 1.20+
+## Contributing
+Contributions are welcome! To get started, check out the [contributing guidelines](CONTRIBUTING.md).
