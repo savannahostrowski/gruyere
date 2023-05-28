@@ -1,0 +1,15 @@
+{
+	"name": "Gruyere",
+	"build": {
+	  "dockerfile": "Dockerfile",
+	  "context": ".."
+	},
+	"customizations": {
+	  "vscode": {
+		"extensions": [
+			"golang.go",
+			"github.vscode-github-actions"
+		]
+	  }
+	}
+}
