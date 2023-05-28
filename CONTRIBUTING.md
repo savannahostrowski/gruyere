@@ -17,7 +17,7 @@ change.
 Gruyere is written in Go. You'll need to install the [Go toolchain](https://go.dev/doc/install) for development.
 
 ### Development
-The easiest way to get set up with everything you need is to work in a Dev Container or in GitHub Codespaces. The Gruyere repo includes a [Dev Container](https://containers.dev/) configuration. By opening the repo in a Dev Container, you will have all tools/dependencies, as outlined by this guide, installed for you for easy contributing.
+The easiest way to get set up with everything you need is to work in a Dev Container or in GitHub Codespaces. The Gruyere repo includes a [Dev Container](https://containers.dev/) configuration. By opening the repo in a Dev Container, you will have all tools/dependencies installed for you for easy contributing.
 
  > If you already have Visual Studio Code and Docker installed, you can install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) and then use the **Dev Containers: Clone Repository in Container Volume...** command to open your fork. If you are using GitHub Codespaces, the environment will be automatically set up for you as the container is built.
 
