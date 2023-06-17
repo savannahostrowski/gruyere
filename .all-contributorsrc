@@ -12,7 +12,17 @@
   "contributorsSortAlphabetically": false,
   "linkToUsage": true,
   "skipCi": true,
-  "contributors": [],
+  "contributors": [
+    {
+      "login": "techygrrrl",
+      "name": "techygrrrl",
+      "avatar_url": "https://avatars.githubusercontent.com/u/88961088?v=4",
+      "profile": "https://github.com/techygrrrl",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
   "commitType": "docs",
   "commitConvention": "angular"
 }
