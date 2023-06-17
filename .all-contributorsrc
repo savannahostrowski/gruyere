@@ -12,7 +12,17 @@
   "contributorsSortAlphabetically": false,
   "linkToUsage": true,
   "skipCi": true,
-  "contributors": [],
+  "contributors": [
+    {
+      "login": "bfgray3",
+      "name": "bernie gray",
+      "avatar_url": "https://avatars.githubusercontent.com/u/20310144?v=4",
+      "profile": "https://github.com/bfgray3",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
   "commitType": "docs",
   "commitConvention": "angular"
 }
