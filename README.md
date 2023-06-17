@@ -31,6 +31,7 @@ A big thank you to these wonderful humans for their contributions!
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/bfgray3"><img src="https://avatars.githubusercontent.com/u/20310144?v=4?s=100" width="100px;" alt="bernie gray"/><br /><sub><b>bernie gray</b></sub></a><br /><a href="https://github.com/savannahostrowski/gruyere/commits?author=bfgray3" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/techygrrrl"><img src="https://avatars.githubusercontent.com/u/88961088?v=4?s=100" width="100px;" alt="techygrrrl"/><br /><sub><b>techygrrrl</b></sub></a><br /><a href="https://github.com/savannahostrowski/gruyere/commits?author=techygrrrl" title="Code">💻</a></td>
     </tr>
   </tbody>
   <tfoot>
