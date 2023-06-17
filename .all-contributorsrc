@@ -42,5 +42,5 @@
     }
   ],
   "commitType": "docs",
-  "commitConvention": "angular"
+  "commitConvention": "gitmoji"
 }
