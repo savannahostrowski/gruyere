@@ -14,6 +14,15 @@
   "skipCi": true,
   "contributors": [
     {
+      "login": "bfgray3",
+      "name": "bernie gray",
+      "avatar_url": "https://avatars.githubusercontent.com/u/20310144?v=4",
+      "profile": "https://github.com/bfgray3",
+       "contributions": [
+        "code"
+      ]
+    },
+    {
       "login": "techygrrrl",
       "name": "techygrrrl",
       "avatar_url": "https://avatars.githubusercontent.com/u/88961088?v=4",
