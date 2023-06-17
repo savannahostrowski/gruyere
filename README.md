@@ -1,4 +1,6 @@
 # gruyere 🧀
+[![All Contributors](https://img.shields.io/github/all-contributors/savannahostrowski/gruyere?color=bd93f9&style=flat-square)](#contributors)
+
 A tiny (and pretty) program for viewing + killing ports. 
 
 I created this program so that I could stop trying to remember the command and all the right flags to view processes on listening ports. This program really just wraps `lsof -i -P -n -sTCP:LISTEN` to get the processes and their PIDs. You can select a process and also kill it using the TUI. The process list has filtering enabled as well (useful if you've got a lot going on; just hit `/` and search by port or PID).
@@ -18,3 +20,15 @@ You can install the appropriate binary for your operating system by visiting the
 
 ## Contributing
 Contributions are welcome! To get started, check out the [contributing guidelines](CONTRIBUTING.md).
+
+## Contributors
+A big thank you to these wonderful humans for their contributions!
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
