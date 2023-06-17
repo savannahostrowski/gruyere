@@ -12,7 +12,17 @@
   "contributorsSortAlphabetically": false,
   "linkToUsage": true,
   "skipCi": true,
-  "contributors": [],
+  "contributors": [
+    {
+      "login": "whoop-t",
+      "name": "whoop-t",
+      "avatar_url": "https://avatars.githubusercontent.com/u/52976607?v=4",
+      "profile": "http://tommym.dev",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
   "commitType": "docs",
   "commitConvention": "angular"
 }
