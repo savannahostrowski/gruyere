@@ -95,7 +95,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Select a port
-		if msg.String() == "enter" {
+		if msg.String() == "enter" && len(m.list.Items()) > 0 {
 			if m.selectedPort == "" {
 				port := m.list.SelectedItem().FilterValue()
 				m.selectedPort = port
@@ -178,12 +178,15 @@ func tickCmd() tea.Cmd {
 	})
 }
 
-func getProcesses() []list.Item {
-	out, _ := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
+func getProcesses() (processes []list.Item) {
+	processes = []list.Item{}
+	out, err := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
+	if err != nil {
+		return
+	}
 	strStdout := string(out)
 
 	procs := strings.Split(strStdout, "\n")
-	var processes []list.Item
 	for i, proc := range procs {
 		if len(proc) == 0 || i == 0 {
 			continue
@@ -200,7 +203,7 @@ func getProcesses() []list.Item {
 		processes = append(processes, item{title: titleStr, desc: descStr})
 	}
 
-	return processes
+	return
 }
 
 func killPort(pid string) {
