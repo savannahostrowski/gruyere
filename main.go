@@ -93,9 +93,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
-
-		// Select a port
-		if msg.String() == "enter" {
+		
+		// If there are no running processes, dont allow user to select
+		hasRunningProcesses := len(m.list.Items()) > 0
+		if msg.String() == "enter" && hasRunningProcesses {
 			if m.selectedPort == "" {
 				port := m.list.SelectedItem().FilterValue()
 				m.selectedPort = port
@@ -179,7 +180,12 @@ func tickCmd() tea.Cmd {
 }
 
 func getProcesses() []list.Item {
-	out, _ := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
+	out, err := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").Output()
+	// Guard to just return empty list on exit error
+	if err != nil {
+		return []list.Item{}
+	}
+	
 	strStdout := string(out)
 
 	procs := strings.Split(strStdout, "\n")
