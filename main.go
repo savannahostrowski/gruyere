@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
+	zone "github.com/lrstanley/bubblezone"
 	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/term"
 )
@@ -68,9 +69,9 @@ type item struct {
 	desc  string
 }
 
-func (i item) Title() string       { return i.title }
+func (i item) Title() string       { return zone.Mark(i.title, i.title) }
 func (i item) Description() string { return i.desc }
-func (i item) FilterValue() string { return i.title }
+func (i item) FilterValue() string { return zone.Mark(i.title, i.title) }
 
 type model struct {
 	list         list.Model
@@ -83,7 +84,7 @@ var doc = strings.Builder{}
 type tickMsg time.Time
 
 func (m model) Init() tea.Cmd {
-	renderTitle()
+	// renderTitle()
 	return tickCmd()
 }
 
@@ -93,7 +94,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
-		
+
 		// If there are no running processes, dont allow user to select
 		hasRunningProcesses := len(m.list.Items()) > 0
 		if msg.String() == "enter" && hasRunningProcesses {
@@ -123,6 +124,45 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeButton = "yes"
 		}
 
+	// Mouse handlers
+	case tea.MouseMsg:
+		if msg.Type == tea.MouseWheelUp {
+			m.list.CursorUp()
+			return m, nil
+		}
+
+		if msg.Type == tea.MouseWheelDown {
+			m.list.CursorDown()
+			return m, nil
+		}
+
+		if msg.Type == tea.MouseRelease {
+			if m.selectedPort == "" {
+				for i, listItem := range m.list.VisibleItems() {
+					item, _ := listItem.(item)
+					// Check each item to see if it's in bounds.
+					if zone.Get(item.title).InBounds(msg) {
+						// If so, select it in the list.
+						port := m.list.Items()[i].FilterValue()
+						m.selectedPort = port
+						break
+					}
+				}
+			// If ok is clicked
+			} else if zone.Get("ok").InBounds(msg) {
+				rgx := regexp.MustCompile(`\((.*?)\)`)
+				pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
+				killPort(pid)
+				// Get running processes again when a process is killed
+				m.list.SetItems(getProcesses())
+				m.list.ResetFilter()
+				m.selectedPort = ""
+			// If no is clicked
+			} else if zone.Get("no").InBounds(msg) {
+				m.selectedPort = ""
+			}
+		}
+
 	case tickMsg:
 		cmd := m.list.SetItems(getProcesses())
 		return m, tea.Batch(tickCmd(), cmd)
@@ -140,15 +180,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	// If there's a selected port, render the confirmation dialog
 	if m.selectedPort != "" {
-		return confirmationView(m)
+		return zone.Scan(confirmationView(m))
 	}
 
-	m.list.SetHeight(20)
 	// Otherwise, we just show the list of processes
-	return docStyle.Render(m.list.View())
+	return zone.Scan(docStyle.Render(m.list.View()))
 }
 
 func main() {
+	// init mouse support via zone
+	zone.NewGlobal()
+
 	// Get processes running on listening ports
 	processes := getProcesses()
 
@@ -164,7 +206,7 @@ func main() {
 	m.list.SetShowTitle(false)
 
 	// Let 'er rip
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithMouseCellMotion())
 
 	if _, err := p.Run(); err != nil {
 		log.Fatal("Error running program:", err)
@@ -185,7 +227,7 @@ func getProcesses() []list.Item {
 	if err != nil {
 		return []list.Item{}
 	}
-	
+
 	strStdout := string(out)
 
 	procs := strings.Split(strStdout, "\n")
@@ -236,7 +278,7 @@ func confirmationView(m model) string {
 
 	qStr := fmt.Sprintf("Are you sure you want to kill port %s?", m.selectedPort)
 	question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).Render(qStr)
-	buttons := lipgloss.JoinHorizontal(lipgloss.Top, okButton, cancelButton)
+	buttons := lipgloss.JoinHorizontal(lipgloss.Top, zone.Mark("ok", okButton), zone.Mark("no", cancelButton))
 	ui := lipgloss.JoinVertical(lipgloss.Center, question, buttons)
 
 	dialog := lipgloss.Place(width, 9,
