@@ -104,7 +104,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				// If accepted killing the port, grab PID + execute killPort()
 				if m.activeButton == "yes" {
-					execPortKill(m)
+					execPortKill(&m)
 				}
 				// In all cases, reset selected port at the end
 				m.selectedPort = ""
@@ -146,7 +146,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				// If ok is clicked
 			} else if zone.Get("ok").InBounds(msg) {
-				execPortKill(m)
+				execPortKill(&m)
 				m.selectedPort = ""
 				// If no is clicked
 			} else if zone.Get("no").InBounds(msg) {
@@ -342,7 +342,7 @@ func colorGrid(xSteps, ySteps int) [][]string {
 	return grid
 }
 
-func execPortKill(m model) {
+func execPortKill(m *model) {
 	rgx := regexp.MustCompile(`\((.*?)\)`)
 	pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
 	killPort(pid)
