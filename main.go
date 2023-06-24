@@ -77,6 +77,7 @@ type model struct {
 	list         list.Model
 	selectedPort string
 	activeButton string
+	title        string
 }
 
 var doc = strings.Builder{}
@@ -84,7 +85,6 @@ var doc = strings.Builder{}
 type tickMsg time.Time
 
 func (m model) Init() tea.Cmd {
-	// renderTitle()
 	return tickCmd()
 }
 
@@ -148,7 +148,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						break
 					}
 				}
-			// If ok is clicked
+				// If ok is clicked
 			} else if zone.Get("ok").InBounds(msg) {
 				rgx := regexp.MustCompile(`\((.*?)\)`)
 				pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
@@ -157,7 +157,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.list.SetItems(getProcesses())
 				m.list.ResetFilter()
 				m.selectedPort = ""
-			// If no is clicked
+				// If no is clicked
 			} else if zone.Get("no").InBounds(msg) {
 				m.selectedPort = ""
 			}
@@ -178,13 +178,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	var view string
 	// If there's a selected port, render the confirmation dialog
 	if m.selectedPort != "" {
-		return zone.Scan(confirmationView(m))
+		view = confirmationView(m)
+	} else {
+	// Otherwise, we just show the list of processes
+		m.list.SetHeight(20)
+		view = docStyle.Render(m.list.View())
 	}
 
-	// Otherwise, we just show the list of processes
-	return zone.Scan(docStyle.Render(m.list.View()))
+	return zone.Scan(lipgloss.JoinVertical(lipgloss.Top, m.title, view))
 }
 
 func main() {
@@ -204,9 +208,12 @@ func main() {
 	m.list.SetStatusBarItemName("process", "processes")
 	//Hide default list title + styles
 	m.list.SetShowTitle(false)
+	m.title = initTitle()
 
 	// Let 'er rip
-	p := tea.NewProgram(m, tea.WithMouseCellMotion())
+	// Note: WithAltScreen is needed or zone(mouse support) will break
+	// See https://github.com/lrstanley/bubblezone/issues/11
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	if _, err := p.Run(); err != nil {
 		log.Fatal("Error running program:", err)
@@ -291,7 +298,7 @@ func confirmationView(m model) string {
 	return baseStyle.Render(dialog + "\n\n")
 }
 
-func renderTitle() {
+func initTitle() string {
 	colors := colorGrid(1, 5)
 	var title strings.Builder
 
@@ -312,7 +319,7 @@ func renderTitle() {
 	row := lipgloss.JoinHorizontal(lipgloss.Top, title.String(), desc)
 	doc.WriteString(row + "\n\n")
 
-	fmt.Println(docStyle.Render(doc.String()))
+	return docStyle.Render(doc.String())
 }
 
 // Via https://github.com/charmbracelet/lipgloss/blob/776c15f0da16d2b1058a079ec6a08a2e1170d721/examples/layout/main.go#L338
