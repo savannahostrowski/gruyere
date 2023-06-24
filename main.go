@@ -104,12 +104,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				// If accepted killing the port, grab PID + execute killPort()
 				if m.activeButton == "yes" {
-					rgx := regexp.MustCompile(`\((.*?)\)`)
-					pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
-					killPort(pid)
-					// Get running processes again when a process is killed
-					m.list.SetItems(getProcesses())
-					m.list.ResetFilter()
+					execPortKill(m)
 				}
 				// In all cases, reset selected port at the end
 				m.selectedPort = ""
@@ -143,6 +138,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Check each item to see if it's in bounds.
 					if zone.Get(item.title).InBounds(msg) {
 						// If so, select it in the list.
+						m.list.Select(i)
 						port := m.list.Items()[i].FilterValue()
 						m.selectedPort = port
 						break
@@ -150,12 +146,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				// If ok is clicked
 			} else if zone.Get("ok").InBounds(msg) {
-				rgx := regexp.MustCompile(`\((.*?)\)`)
-				pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
-				killPort(pid)
-				// Get running processes again when a process is killed
-				m.list.SetItems(getProcesses())
-				m.list.ResetFilter()
+				execPortKill(m)
 				m.selectedPort = ""
 				// If no is clicked
 			} else if zone.Get("no").InBounds(msg) {
@@ -183,7 +174,7 @@ func (m model) View() string {
 	if m.selectedPort != "" {
 		view = confirmationView(m)
 	} else {
-	// Otherwise, we just show the list of processes
+		// Otherwise, we just show the list of processes
 		m.list.SetHeight(20)
 		view = docStyle.Render(m.list.View())
 	}
@@ -349,4 +340,13 @@ func colorGrid(xSteps, ySteps int) [][]string {
 	}
 
 	return grid
+}
+
+func execPortKill(m model) {
+	rgx := regexp.MustCompile(`\((.*?)\)`)
+	pid := rgx.FindStringSubmatch(m.list.SelectedItem().FilterValue())[1]
+	killPort(pid)
+	// Get running processes again when a process is killed
+	m.list.SetItems(getProcesses())
+	m.list.ResetFilter()
 }
