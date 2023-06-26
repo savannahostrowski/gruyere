@@ -70,7 +70,7 @@ type item struct {
 }
 
 func (i item) Title() string       { return zone.Mark(i.title, i.title) }
-func (i item) Description() string { return i.desc }
+func (i item) Description() string { return zone.Mark(i.desc, i.desc) }
 func (i item) FilterValue() string { return zone.Mark(i.title, i.title) }
 
 type model struct {
@@ -136,7 +136,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for i, listItem := range m.list.VisibleItems() {
 					item, _ := listItem.(item)
 					// Check each item to see if it's in bounds.
-					if zone.Get(item.title).InBounds(msg) {
+					if zone.Get(item.title).InBounds(msg) || zone.Get(item.desc).InBounds(msg) {
 						// If so, select it in the list.
 						m.list.Select(i)
 						port := m.list.Items()[i].FilterValue()
