@@ -95,9 +95,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-		// If there are no running processes, dont allow user to select
-		hasRunningProcesses := len(m.list.Items()) > 0
-		if msg.String() == "enter" && hasRunningProcesses {
+		if msg.String() == "enter" && m.list.SelectedItem() != nil {
 			if m.selectedPort == "" {
 				port := m.list.SelectedItem().FilterValue()
 				m.selectedPort = port
