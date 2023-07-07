@@ -23,5 +23,5 @@ The easiest way to get set up with everything you need is to work in a Dev Conta
 
 If you'd like to use another editor/IDE, just create a fork + clone the repo!
 
-## Adding yourself to the contributors listed in the Ghost README
+## Adding yourself to the contributors listed in the Gruyere README
 If you'd like to be included in the list of contributors, you can follow [these instructions](https://allcontributors.org/docs/en/bot/usage) to do so!
