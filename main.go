@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -197,6 +198,21 @@ func main() {
 	m.list.SetStatusBarItemName("process", "processes")
 	//Hide default list title + styles
 	m.list.SetShowTitle(false)
+	mwheel :=
+		key.NewBinding(
+			key.WithKeys("mwheel"),
+			key.WithHelp("mwheel", "up/down"),
+		)
+	m.list.AdditionalShortHelpKeys = func() []key.Binding {
+		return []key.Binding{
+			mwheel,
+		}
+	}
+	m.list.AdditionalFullHelpKeys = func() []key.Binding {
+		return []key.Binding{
+			mwheel,
+		}
+	}
 	m.title = initTitle()
 
 	// Let 'er rip
