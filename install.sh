@@ -17,7 +17,7 @@ case $ARCH in
         ;;
 esac
 
-# Set version
+# Set latest release version
 VERSION=$(curl -s "https://api.github.com/repos/savannahostrowski/gruyere/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([0-9.]+)".*/\1/')
 
 # Construct download URL
