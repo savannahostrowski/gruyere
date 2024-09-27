@@ -7,15 +7,15 @@ OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 
 case $ARCH in
-    x86_64)
-        ARCH="amd64"
-        ;;
-    aarch64|arm64)
-        ARCH="arm64"
-        ;;
-    i386|i686)
-        ARCH="386"
-        ;;
+	x86_64)
+		ARCH="amd64"
+		;;
+	aarch64|arm64)
+		ARCH="arm64"
+		;;
+	i386|i686)
+		ARCH="386"
+		;;
 	*)
 		echo "Unsupported architecture: $ARCH"
 		exit 1
