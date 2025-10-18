@@ -16,7 +16,18 @@ gruyere makes use of the wonderful [Charm](https://github.com/charmbracelet) lib
 - [Log](https://github.com/charmbracelet/log)
 
 ## Installation
+
+### From binaries
+
 You can install the appropriate binary for your operating system by visiting the [Releases page](https://github.com/savannahostrowski/gruyere/releases).
+
+### Via Go
+
+If go is installed on your computer, run this shell command in a terminal:
+
+```sh
+go install github.com/savannahostrowski/gruyere@latest
+```
 
 ## Contributing
 Contributions are welcome! To get started, check out the [contributing guidelines](CONTRIBUTING.md).
