@@ -1,4 +1,4 @@
-# Gruyere 🧀
+# Gruyère 🧀
 
 A tiny, beautiful TUI program for viewing and killing processes listening on ports.
 
