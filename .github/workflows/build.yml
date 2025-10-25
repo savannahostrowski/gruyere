@@ -1,36 +1,36 @@
-name: build
+name: Publish to PyPI
 
 on:
   push:
     tags:
-      - "*"
+      - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build:
-    name: GoReleaser build
+  build-and-publish:
+    name: Build and publish Python distribution to PyPI
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          fetch-depth: 0
-      - name: Set up Go 1.20
-        uses: actions/setup-go@v3
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          go-version: "1.20"
-        id: go
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+          python-version: "3.12"
+
+      - name: Build package
+        run: uv build
+        working-directory: gruyere-py
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          version: latest
-          args: release --rm-dist
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload assets
-        uses: actions/upload-artifact@v3
-        with:
-          name: gruyere
-          path: dist/*
+          packages-dir: gruyere-py/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}

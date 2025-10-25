@@ -1,0 +1,61 @@
+[project]
+name = "gruyere"
+version = "0.0.1"
+description = "A tiny program for viewing and killing processes on ports"
+readme = "README.md"
+authors = [
+    { name = "Savannah Ostrowski", email = "savannah@python.org" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "readchar>=4.2.1",
+    "rich>=14.2.0",
+]
+keywords = ["ports", "processes", "kill", "lsof", "tui"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/gruyere"
+Repository = "https://github.com/yourusername/gruyere"
+Issues = "https://github.com/yourusername/gruyere/issues"
+
+[project.scripts]
+gruyere = "gruyere.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatchling.build.targets.wheel]
+# Only include the gruyere package
+packages = ["gruyere"]
+
+[tool.hatchling.build.targets.sdist]
+exclude = [
+    "/.python-version",
+    "/uv.lock",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "pyright>=1.1.407",
+    "ruff>=0.14.2",
+]
+
+[tool.pyright]
+include = ["gruyere"]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"
