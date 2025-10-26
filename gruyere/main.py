@@ -59,6 +59,16 @@ def extract_app_name(command: str) -> str:
             app_name = path_before_app[app_start + 1 :]
             return app_name.replace(".app", "")
 
+    # Handle Windows .exe paths - look for .exe to find the executable
+    if ".exe" in command:
+        exe_end = command.find(".exe") + 4
+        path_before_exe = command[:exe_end]
+        # Find the last backslash or forward slash
+        exe_start = max(path_before_exe.rfind("\\"), path_before_exe.rfind("/"))
+        if exe_start != -1:
+            exe_name = path_before_exe[exe_start + 1 :]
+            return exe_name.replace(".exe", "")
+
     # For other executables, get the first word/path component
     parts = command.split()
     if not parts:
