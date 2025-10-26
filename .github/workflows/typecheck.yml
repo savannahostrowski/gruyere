@@ -18,22 +18,21 @@ jobs:
   pyright:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: uv sync
         working-directory: gruyere-py
 
       - name: Run Pyright
-        run: uv run pyright gruyere/
-        working-directory: gruyere-py
+        uses: jakebailey/pyright-action@v2
