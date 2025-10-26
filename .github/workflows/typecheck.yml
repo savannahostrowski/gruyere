@@ -31,8 +31,9 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-groups
         working-directory: gruyere-py
 
       - name: Run Pyright
-        uses: jakebailey/pyright-action@v2
+        run: uv run pyright
+        working-directory: gruyere-py
