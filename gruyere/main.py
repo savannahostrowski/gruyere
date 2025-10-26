@@ -117,7 +117,7 @@ def get_processes() -> list[Process]:
     except psutil.AccessDenied:
         # On macOS, net_connections() requires elevated privileges
         # Fall back to checking each process individually
-        for proc in psutil.process_iter(["pid"]):
+        for proc in psutil.process_iter(["pid"]):  # type: ignore[misc]
             try:
                 pid = proc.info["pid"]
                 proc_connections = proc.net_connections(kind="inet")
@@ -177,9 +177,30 @@ def _show_pagination_indicator(total: int, selected: int, panels: list[Panel | s
 
 
 def _render_processes_table(
-    processes: List[Process], selected: int, show_details: bool = False
+    processes: List[Process],
+    selected: int,
+    show_details: bool = False,
+    is_filtering: bool = False,
 ):
     max_display = 4
+
+    if not processes:
+        no_results_panel = Panel(
+            "[dim]No processes found matching your filter.\n\nPress BACKSPACE to clear filter or ENTER to exit filter mode.[/dim]",
+            box=box.SIMPLE,
+            style="dim",
+        )
+        if is_filtering:
+            help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | BACKSPACE: Clear | ENTER: Exit filter [/bold dim]"
+
+            return Group(no_results_panel, Panel(help_text, box=box.SIMPLE))
+        else:
+            help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | d: Toggle details | ENTER: Kill | /: Filter | q: Quit [/bold dim]"
+            return Group(
+                f"[dim]Displaying 0 processes[/dim]",
+                no_results_panel,
+                Panel(help_text, box=box.SIMPLE),
+            )
 
     if len(processes) <= max_display:
         display_processes = processes
@@ -227,8 +248,15 @@ def _render_processes_table(
 
     _show_pagination_indicator(len(processes), selected, panels)
 
-    help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | ENTER: Kill | /: Filter | q: Quit [/bold dim]"
-    return Group(*panels, Panel(help_text, box=box.SIMPLE))
+    if is_filtering:
+        help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | BACKSPACE: Clear | ENTER: Select [/bold dim]"
+    else:
+        help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | d: Toggle details | ENTER: Kill | /: Filter | q: Quit [/bold dim]"
+
+    process_count = len(processes)
+    count_text = f"[dim]Displaying [bold #EE6FF8]{process_count}[/bold #EE6FF8] process{'es' if process_count != 1 else ''}[/dim]"
+
+    return Group(count_text, *panels, Panel(help_text, box=box.SIMPLE))
 
 
 def _colorGrid(x_steps: int, y_steps: int) -> List[List[Style]]:
@@ -277,6 +305,22 @@ def _colorGrid(x_steps: int, y_steps: int) -> List[List[Style]]:
         grid.append(row)
 
     return grid
+
+
+def create_filter_panel(filter_text: str) -> Panel:
+    """Create the filter input panel."""
+    return Panel(
+        f"[bold #EE6FF8]Filter:[/bold #EE6FF8] {filter_text}[blink]_[/blink]",
+        title="Press BACKSPACE on empty to cancel, ENTER to apply",
+        border_style="#EE6FF8",
+    )
+
+
+def apply_filter(filter_text: str, all_processes: list[Process]) -> list[Process]:
+    """Filter processes by name."""
+    if not filter_text:
+        return all_processes
+    return [p for p in all_processes if filter_text.lower() in p.name.lower()]
 
 
 def _render_title():
@@ -329,7 +373,7 @@ def _show_confirmation_view(console: Console, process: Process, title: Text) -> 
         ch = readkey()
         if ch.lower() == "y":
             return True
-        elif ch.lower() == "n":
+        elif ch.lower() == "n" or ch.lower() == "q":
             return False
 
 
@@ -390,69 +434,79 @@ def main(
             refresh_per_second=refresh_rate,
         ) as live:
             while ch := readkey():
-                if is_filtering:
-                    if ch == "/":
-                        is_filtering = False
-                        filter_text = ""
-                        processes = get_processes()
-                        live.update(
-                            _render_processes_table(processes, selected, details)
-                        )
-                        continue
-                    elif ch == key.UP or ch == "k":
-                        selected = max(0, selected - 1)
-                    elif ch == key.DOWN or ch == "j":
-                        selected = min(len(processes) - 1, selected + 1)
-                    elif ch == key.BACKSPACE:
-                        filter_text = filter_text[:-1]
-                        processes = [
-                            p
-                            for p in get_processes()
-                            if filter_text.lower() in p.command.lower()
-                        ]
-                        selected = 0
+                needs_update = False
+
+                if ch == key.UP or ch == "k":
+                    selected = max(0, selected - 1)
+                    needs_update = True
+                elif ch == key.DOWN or ch == "j":
+                    selected = min(len(processes) - 1, selected + 1)
+                    needs_update = True
+
+                # Handle filtering mode
+                if is_filtering and not needs_update:
+                    if ch == key.BACKSPACE:
+                        if filter_text:
+                            # Backspace removes a character
+                            filter_text = filter_text[:-1]
+                            processes = apply_filter(filter_text, get_processes())
+                            selected = 0
+                        else:
+                            # Backspace on empty filter exits filter mode
+                            is_filtering = False
+                            processes = get_processes()
+                            live.update(
+                                _render_processes_table(
+                                    processes, selected, details, is_filtering=False
+                                )
+                            )
+                            continue
                     elif ch == key.ENTER:
                         is_filtering = False
-                        process_to_kill = processes[selected] if processes else None
+                        if processes:
+                            # Process selected - will show confirmation
+                            process_to_kill = processes[selected]
+                        else:
+                            # No matches - restore all processes
+                            process_to_kill = None
+                            processes = get_processes()
+                            selected = 0
                         break
                     elif len(ch) == 1 and ch.isprintable():
                         filter_text += ch
-                        processes = [
-                            p
-                            for p in get_processes()
-                            if filter_text.lower() in p.command.lower()
-                        ]
+                        processes = apply_filter(filter_text, get_processes())
                         selected = 0
 
-                    filter_panel = Panel(
-                        f"[bold magenta]Filter:[/bold magenta] {filter_text}[blink]_[/blink]",
-                        title="Press / to cancel, ENTER to apply",
-                        border_style="magenta",
-                    )
+                # Update display in filtering mode (after handling all filtering keys or navigation)
+                if is_filtering:
                     display = Group(
-                        filter_panel,
-                        _render_processes_table(processes, selected, details),
+                        create_filter_panel(filter_text),
+                        _render_processes_table(
+                            processes, selected, details, is_filtering=True
+                        ),
                     )
                     live.update(display)
-                else:
-                    if ch == key.UP or ch == "k":
-                        selected = max(0, selected - 1)
-                    elif ch == key.DOWN or ch == "j":
-                        selected = min(len(processes) - 1, selected + 1)
+
+                # Handle normal mode
+                elif not needs_update:
+                    # Only handle non-navigation keys in normal mode
+                    if ch == "d":
+                        details = not details
+                        live.update(
+                            _render_processes_table(
+                                processes, selected, details, is_filtering=False
+                            )
+                        )
                     elif ch == "/":
                         is_filtering = True
                         filter_text = ""
-                        filter_panel = Panel(
-                            f"[bold magenta]Filter:[/bold magenta] {filter_text}[blink]_[/blink]",
-                            title="Press / to cancel, ENTER to apply",
-                            border_style="magenta",
-                        )
                         display = Group(
-                            filter_panel,
-                            _render_processes_table(processes, selected, details),
+                            create_filter_panel(filter_text),
+                            _render_processes_table(
+                                processes, selected, details, is_filtering=True
+                            ),
                         )
                         live.update(display)
-                        continue  # Skip the update at the end of the loop
                     elif ch == "q":
                         running = False
                         break
@@ -460,16 +514,29 @@ def main(
                         # Exit live context to show confirmation view
                         process_to_kill = processes[selected]
                         break
-                    live.update(_render_processes_table(processes, selected, details))
+                    # Ignore other keys
 
-        if process_to_kill is not None:
-            _clear_screen()
+                # Update display for navigation in normal mode
+                elif needs_update:
+                    live.update(
+                        _render_processes_table(
+                            processes, selected, details, is_filtering=False
+                        )
+                    )
 
-        if running and process_to_kill is not None:
-            if _show_confirmation_view(console, process_to_kill, text):
-                kill_process(process_to_kill.pid)
-                processes = get_processes()
-                selected = min(selected, len(processes) - 1)
+        if running:
+            if process_to_kill is not None:
+                # Process was selected, show confirmation
+                _clear_screen()
+                if _show_confirmation_view(console, process_to_kill, text):
+                    kill_process(process_to_kill.pid)
+                    processes = get_processes()
+                    selected = min(selected, len(processes) - 1)
 
-            _clear_screen()
-            console.print(Panel(text, box=box.SIMPLE))
+                _clear_screen()
+                console.print(Panel(text, box=box.SIMPLE))
+            else:
+                # No process selected (e.g., pressed ENTER with no matches in filter mode)
+                # Just clear and redraw to get back to normal display
+                _clear_screen()
+                console.print(Panel(text, box=box.SIMPLE))
