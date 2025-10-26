@@ -1,7 +1,7 @@
 import sys
 
 from gruyere import main as gruyere_main
-from gruyere.main import parse_port, get_processes, Process
+from gruyere.main import Process, extract_app_name, get_processes, parse_port
 
 
 def test_parse_port_with_integer():
@@ -30,15 +30,16 @@ def test_get_processes_returns_list():
         assert hasattr(processes[0], "port")
         assert hasattr(processes[0], "user")
         assert hasattr(processes[0], "command")
+        assert hasattr(processes[0], "name")
 
 
 def test_port_filtering():
     """Test that port filtering works correctly."""
     # Create mock processes
     mock_processes = [
-        Process(pid=1234, port=8000, user="savannah", command="python3"),
-        Process(pid=5678, port=3000, user="savannah", command="node"),
-        Process(pid=9012, port=8000, user="root", command="nginx"),
+        Process(pid=1234, port=8000, user="savannah", command="python3", name="python3"),
+        Process(pid=5678, port=3000, user="savannah", command="node", name="node"),
+        Process(pid=9012, port=8000, user="root", command="nginx", name="nginx"),
     ]
 
     # Filter by port 8000
@@ -51,9 +52,9 @@ def test_user_filtering():
     """Test that user filtering works correctly."""
     # Create mock processes
     mock_processes = [
-        Process(pid=1234, port=8000, user="savannah", command="python3"),
-        Process(pid=5678, port=3000, user="savannah", command="node"),
-        Process(pid=9012, port=8000, user="root", command="nginx"),
+        Process(pid=1234, port=8000, user="savannah", command="python3", name="python3"),
+        Process(pid=5678, port=3000, user="savannah", command="node", name="node"),
+        Process(pid=9012, port=8000, user="root", command="nginx", name="nginx"),
     ]
 
     # Filter by user "savannah"
@@ -66,9 +67,9 @@ def test_combined_filtering():
     """Test filtering by both port and user."""
     # Create mock processes
     mock_processes = [
-        Process(pid=1234, port=8000, user="savannah", command="python3"),
-        Process(pid=5678, port=3000, user="savannah", command="node"),
-        Process(pid=9012, port=8000, user="root", command="nginx"),
+        Process(pid=1234, port=8000, user="savannah", command="python3", name="python3"),
+        Process(pid=5678, port=3000, user="savannah", command="node", name="node"),
+        Process(pid=9012, port=8000, user="root", command="nginx", name="nginx"),
     ]
 
     # Filter by port 8000 AND user "savannah"
@@ -81,16 +82,53 @@ def test_combined_filtering():
     assert filtered[0].pid == 1234
 
 
-def test_not_supported_on_windows():
-    """Test that the script exits on Windows systems."""
-    original_platform = sys.platform
-    sys.platform = "win32"
-    try:
-        try:
-            gruyere_main.main()
-        except SystemExit as e:
-            assert e.code == 1
-        else:
-            assert False, "Expected SystemExit was not raised."
-    finally:
-        sys.platform = original_platform
+def test_extract_app_name_from_macos_app():
+    """Test extracting app names from macOS .app bundles."""
+    # Test Visual Studio Code
+    cmd = "/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Plugin).app/Contents/MacOS/Code Helper (Plugin)"
+    assert extract_app_name(cmd) == "Visual Studio Code"
+
+    # Test Discord
+    cmd = "/Applications/Discord.app/Contents/Frameworks/Discord Helper (Renderer).app/Contents/MacOS/Discord Helper (Renderer)"
+    assert extract_app_name(cmd) == "Discord"
+
+    # Test app with spaces
+    cmd = "/Applications/Elgato Camera Hub.app/Contents/MacOS/Camera Hub --background"
+    assert extract_app_name(cmd) == "Elgato Camera Hub"
+
+
+def test_extract_app_name_from_regular_executable():
+    """Test extracting names from regular executables."""
+    # Test system executable
+    assert extract_app_name("/usr/libexec/rapportd") == "rapportd"
+
+    # Test with arguments
+    assert extract_app_name("python3 -m http.server 8000") == "python3"
+
+    # Test with full path
+    assert extract_app_name("/usr/bin/node server.js") == "node"
+
+
+def test_extract_app_name_edge_cases():
+    """Test edge cases for app name extraction."""
+    # Test empty string
+    assert extract_app_name("") == ""
+
+    # Test N/A
+    assert extract_app_name("N/A") == "N/A"
+
+    # Test single executable name
+    assert extract_app_name("nginx") == "nginx"
+
+
+def test_process_has_clean_name():
+    """Test that Process objects created by get_processes have clean names."""
+    processes = get_processes()
+
+    # If there are any processes, verify they have clean names
+    if processes:
+        # Name should exist and be different from command (unless very simple)
+        assert processes[0].name is not None
+        assert isinstance(processes[0].name, str)
+        # Name should be shorter than or equal to the command
+        assert len(processes[0].name) <= len(processes[0].command)

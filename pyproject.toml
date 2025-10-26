@@ -7,8 +7,9 @@ authors = [
     { name = "Savannah Ostrowski", email = "savannah@python.org" }
 ]
 license = { text = "MIT" }
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
+    "psutil>=7.1.2",
     "readchar>=4.2.1",
     "rich>=14.2.0",
     "typer>=0.15.1",
@@ -20,9 +21,10 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: System :: Monitoring",
     "Topic :: Utilities",
 ]
@@ -60,7 +62,13 @@ dev = [
     "ruff>=0.14.2",
 ]
 
+[tool.ruff]
+fix = true
+
+[tool.ruff.lint]
+select = ["I"]  # Enable isort rules for import sorting
+
 [tool.pyright]
 include = ["gruyere"]
 typeCheckingMode = "strict"
-pythonVersion = "3.12"
+pythonVersion = "3.13"
