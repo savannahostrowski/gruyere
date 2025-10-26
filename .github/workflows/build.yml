@@ -30,4 +30,5 @@ jobs:
         working-directory: gruyere-py
 
       - name: Publish to PyPI
-        uses: uv publish 
+        run: uv publish
+        working-directory: gruyere-py
