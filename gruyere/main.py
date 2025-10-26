@@ -307,7 +307,7 @@ def _colorGrid(x_steps: int, y_steps: int) -> List[List[Style]]:
     return grid
 
 
-def _create_filter_panel(filter_text: str) -> Panel:
+def create_filter_panel(filter_text: str) -> Panel:
     """Create the filter input panel."""
     return Panel(
         f"[bold #EE6FF8]Filter:[/bold #EE6FF8] {filter_text}[blink]_[/blink]",
@@ -316,7 +316,7 @@ def _create_filter_panel(filter_text: str) -> Panel:
     )
 
 
-def _apply_filter(filter_text: str, all_processes: list[Process]) -> list[Process]:
+def apply_filter(filter_text: str, all_processes: list[Process]) -> list[Process]:
     """Filter processes by name."""
     if not filter_text:
         return all_processes
@@ -449,7 +449,7 @@ def main(
                         if filter_text:
                             # Backspace removes a character
                             filter_text = filter_text[:-1]
-                            processes = _apply_filter(filter_text, get_processes())
+                            processes = apply_filter(filter_text, get_processes())
                             selected = 0
                         else:
                             # Backspace on empty filter exits filter mode
@@ -474,13 +474,13 @@ def main(
                         break
                     elif len(ch) == 1 and ch.isprintable():
                         filter_text += ch
-                        processes = _apply_filter(filter_text, get_processes())
+                        processes = apply_filter(filter_text, get_processes())
                         selected = 0
 
                 # Update display in filtering mode (after handling all filtering keys or navigation)
                 if is_filtering:
                     display = Group(
-                        _create_filter_panel(filter_text),
+                        create_filter_panel(filter_text),
                         _render_processes_table(
                             processes, selected, details, is_filtering=True
                         ),
@@ -501,7 +501,7 @@ def main(
                         is_filtering = True
                         filter_text = ""
                         display = Group(
-                            _create_filter_panel(filter_text),
+                            create_filter_panel(filter_text),
                             _render_processes_table(
                                 processes, selected, details, is_filtering=True
                             ),

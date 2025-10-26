@@ -1,8 +1,16 @@
 import sys
 
 import pytest
+from rich.panel import Panel
 
-from gruyere.main import Process, extract_app_name, get_processes, parse_port
+from gruyere.main import (
+    Process,
+    apply_filter,
+    create_filter_panel,
+    extract_app_name,
+    get_processes,
+    parse_port,
+)
 
 
 def test_parse_port_with_integer():
@@ -148,3 +156,99 @@ def test_process_has_clean_name():
         assert isinstance(processes[0].name, str)
         # Name should be shorter than or equal to the command
         assert len(processes[0].name) <= len(processes[0].command)
+
+
+def test_apply_filter_with_empty_filter():
+    """Test that empty filter returns all processes."""
+    mock_processes = [
+        Process(pid=1234, port=8000, user="savannah", command="python3 server.py", name="python3"),
+        Process(pid=5678, port=3000, user="savannah", command="node app.js", name="node"),
+        Process(pid=9012, port=8000, user="root", command="nginx", name="nginx"),
+    ]
+
+    result = apply_filter("", mock_processes)
+    assert len(result) == 3
+    assert result == mock_processes
+
+
+def test_apply_filter_with_matching_text():
+    """Test filtering processes by name."""
+    mock_processes = [
+        Process(pid=1234, port=8000, user="savannah", command="python3 server.py", name="python3"),
+        Process(pid=5678, port=3000, user="savannah", command="node app.js", name="node"),
+        Process(pid=9012, port=8000, user="root", command="nginx", name="nginx"),
+    ]
+
+    # Filter for "python"
+    result = apply_filter("python", mock_processes)
+    assert len(result) == 1
+    assert result[0].name == "python3"
+
+
+def test_apply_filter_case_insensitive():
+    """Test that filtering is case-insensitive."""
+    mock_processes = [
+        Process(pid=1234, port=8000, user="savannah", command="python3 server.py", name="Python3"),
+        Process(pid=5678, port=3000, user="savannah", command="node app.js", name="Node"),
+    ]
+
+    # Should match regardless of case
+    assert len(apply_filter("python", mock_processes)) == 1
+    assert len(apply_filter("PYTHON", mock_processes)) == 1
+    assert len(apply_filter("PyThOn", mock_processes)) == 1
+
+
+def test_apply_filter_with_no_matches():
+    """Test filtering with no matching processes."""
+    mock_processes = [
+        Process(pid=1234, port=8000, user="savannah", command="python3 server.py", name="python3"),
+        Process(pid=5678, port=3000, user="savannah", command="node app.js", name="node"),
+    ]
+
+    result = apply_filter("nonexistent", mock_processes)
+    assert len(result) == 0
+    assert result == []
+
+
+def test_apply_filter_partial_match():
+    """Test that partial matches work."""
+    mock_processes = [
+        Process(pid=1234, port=8000, user="savannah", command="Visual Studio Code", name="Visual Studio Code"),
+        Process(pid=5678, port=3000, user="savannah", command="node app.js", name="node"),
+    ]
+
+    # Partial match should work
+    result = apply_filter("code", mock_processes)
+    assert len(result) == 1
+    assert result[0].name == "Visual Studio Code"
+
+
+def test_create_filter_panel():
+    """Test that filter panel is created with correct styling."""
+    panel: Panel = create_filter_panel("test")
+
+    # Panel should be a Rich Panel object
+    assert isinstance(panel, Panel)
+
+    # Check that it uses the brand color
+    assert panel.border_style == "#EE6FF8"
+
+
+def test_process_sorting_by_port():
+    """Test that processes are sorted by port (numeric first, then strings)."""
+    mock_processes = [
+        Process(pid=1, port="*:8000", user="user1", command="cmd1", name="app1"),
+        Process(pid=2, port=3000, user="user2", command="cmd2", name="app2"),
+        Process(pid=3, port=8000, user="user3", command="cmd3", name="app3"),
+        Process(pid=4, port=80, user="user4", command="cmd4", name="app4"),
+    ]
+
+    # Sort using the same logic as get_processes()
+    sorted_processes = sorted(mock_processes, key=lambda p: (isinstance(p.port, str), p.port))
+
+    # Numeric ports should come first, in ascending order
+    assert sorted_processes[0].port == 80
+    assert sorted_processes[1].port == 3000
+    assert sorted_processes[2].port == 8000
+    # String ports should come last
+    assert sorted_processes[3].port == "*:8000"
