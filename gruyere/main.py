@@ -424,7 +424,6 @@ def main(
         """Get processes with all filters applied."""
         all_processes = get_processes()
 
-        # Apply CLI filters
         if port is not None:
             all_processes = [p for p in all_processes if p.port == port]
         if user is not None:
