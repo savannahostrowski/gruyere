@@ -5,18 +5,16 @@ repos:
       # Run the linter
       - id: ruff
         args: [--fix]
-        files: '^gruyere-py/.*\.py$'
-        exclude: '^go/'
+        files: '^gruyere/.*\.py$'
       # Run the formatter
       - id: ruff-format
-        files: '^gruyere-py/.*\.py$'
-        exclude: '^go/'
+        files: '^gruyere/.*\.py$'
 
   - repo: local
     hooks:
       - id: pytest
         name: pytest
-        entry: bash -c 'cd gruyere-py && uv run --frozen pytest'
+        entry: uv run --frozen --group dev pytest
         language: system
         pass_filenames: false
         always_run: true

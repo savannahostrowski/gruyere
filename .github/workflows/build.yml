@@ -28,8 +28,6 @@ jobs:
 
       - name: Build package
         run: uv build
-        working-directory: gruyere-py
 
       - name: Publish to PyPI
         run: uv publish
-        working-directory: gruyere-py

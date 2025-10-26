@@ -4,12 +4,12 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'gruyere-py/**/*.py'
+      - 'gruyere/**/*.py'
       - '.github/workflows/lint.yml'
   pull_request:
     branches: [ main ]
     paths:
-      - 'gruyere-py/**/*.py'
+      - 'gruyere/**/*.py'
       - '.github/workflows/lint.yml'
 
 jobs:
@@ -30,12 +30,9 @@ jobs:
 
       - name: Install dependencies
         run: uv sync
-        working-directory: gruyere-py
 
       - name: Run Ruff linter
         run: uv run ruff check gruyere/
-        working-directory: gruyere-py
 
       - name: Run Ruff formatter
         run: uv run ruff format --check gruyere/
-        working-directory: gruyere-py

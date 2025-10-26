@@ -18,7 +18,13 @@ pip install gruyere
 gruyere
 ```
 
-See [gruyere-py/README.md](gruyere-py/README.md) for more details.
+### Controls
+
+- `↑`/`k`: Move up
+- `↓`/`j`: Move down
+- `/`: Filter processes
+- `ENTER`: Kill selected process
+- `q`: Quit
 
 ## Features
 
