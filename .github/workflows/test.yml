@@ -14,7 +14,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
 
@@ -23,11 +26,12 @@ jobs:
         with:
             python-version: "3.13"
 
-      - name: Install system dependencies
+      - name: Install system dependencies (Linux only)
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y lsof
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
             enable-cache: true
       - name: Install dependencies

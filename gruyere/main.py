@@ -1,18 +1,19 @@
-from dataclasses import dataclass
+import os
 import signal
-import subprocess
 import sys
+from dataclasses import dataclass
 from typing import List, Optional
 
+import psutil
 import typer
-from readchar import readkey, key
+from readchar import key, readkey
+from rich import box
 from rich.color import Color
 from rich.console import Console, Group
 from rich.live import Live
-from rich.style import Style
 from rich.panel import Panel
+from rich.style import Style
 from rich.text import Text
-from rich import box
 
 
 @dataclass
@@ -21,6 +22,7 @@ class Process:
     port: int | str
     user: str
     command: str
+    name: str
 
 
 SELECTED_COLOR = Style(color="#EE6FF8", bold=True)
@@ -44,27 +46,118 @@ def parse_port(port_str: str) -> int | str:
         return port_str
 
 
-def get_processes() -> list[Process]:
-    raw_processes = subprocess.run(
-        ["lsof", "-i", "-P", "-n", "-sTCP:LISTEN"], capture_output=True, text=True
+def extract_app_name(command: str) -> str:
+    if not command or command == "N/A":
+        return command
+
+    # Handle macOS .app bundles - extract the main app name from the full command string
+    if ".app/" in command:
+        first_app_end = command.find(".app/") + 4
+        path_before_app = command[:first_app_end]
+        app_start = path_before_app.rfind("/")
+        if app_start != -1:
+            app_name = path_before_app[app_start + 1 :]
+            return app_name.replace(".app", "")
+
+    # Handle Windows .exe paths - look for .exe to find the executable
+    if ".exe" in command:
+        exe_end = command.find(".exe") + 4
+        path_before_exe = command[:exe_end]
+        # Find the last backslash or forward slash
+        exe_start = max(path_before_exe.rfind("\\"), path_before_exe.rfind("/"))
+        if exe_start != -1:
+            exe_name = path_before_exe[exe_start + 1 :]
+            return exe_name.replace(".exe", "")
+
+    # For other executables, get the first word/path component
+    parts = command.split()
+    if not parts:
+        return command
+
+    executable = parts[0]
+    basename = os.path.basename(executable)
+
+    # Remove common helper suffixes for cleaner names
+    basename = (
+        basename.replace(" (Plugin)", "")
+        .replace(" (Renderer)", "")
+        .replace(" (GPU)", "")
     )
+
+    return basename
+
+
+def get_processes() -> list[Process]:
+    """Get a list of processes with their associated ports."""
     processes: list[Process] = []
+    try:
+        connections = psutil.net_connections(kind="inet")
+        for conn in connections:
+            if (
+                conn.laddr
+                and conn.status == psutil.CONN_LISTEN
+                and conn.pid is not None
+            ):
+                pid = conn.pid
+                port = parse_port(str(conn.laddr.port))
+                try:
+                    proc = psutil.Process(pid)
+                    user = proc.username()
+                    command = (
+                        " ".join(proc.cmdline()) if proc.cmdline() else proc.name()
+                    )
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    user = "N/A"
+                    command = "N/A"
 
-    for line in raw_processes.stdout.splitlines()[1:]:
-        parts = line.split()
-        if len(parts) >= 9:
-            pid = int(parts[1])
-            user = parts[2]
-            command = parts[0]
-            port = parse_port(parts[8].split(":")[-1])
-            process = Process(pid=pid, port=port, user=user, command=command)
-            processes.append(process)
+                name = extract_app_name(command)
+                processes.append(
+                    Process(pid=pid, port=port, user=user, command=command, name=name)
+                )
+    except psutil.AccessDenied:
+        # On macOS, net_connections() requires elevated privileges
+        # Fall back to checking each process individually
+        for proc in psutil.process_iter(["pid"]):
+            try:
+                pid = proc.info["pid"]
+                proc_connections = proc.net_connections(kind="inet")
+                for conn in proc_connections:
+                    if conn.laddr and conn.status == psutil.CONN_LISTEN:
+                        port = parse_port(str(conn.laddr.port))
+                        try:
+                            user = proc.username()
+                            # get last part of command line or name if empty
+                            command = (
+                                " ".join(proc.cmdline())
+                                if proc.cmdline()
+                                else proc.name()
+                            )
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            user = "N/A"
+                            command = "N/A"
 
+                        name = extract_app_name(command)
+                        processes.append(
+                            Process(
+                                pid=pid,
+                                port=port,
+                                user=user,
+                                command=command,
+                                name=name,
+                            )
+                        )
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                # Skip processes we can't access
+                continue
+
+    # Sort processes by port number (numeric ports first, then strings)
+    processes.sort(key=lambda p: (isinstance(p.port, str), p.port))
     return processes
 
 
 def kill_process(pid: int):
-    subprocess.run(["kill", "-9", str(pid)])
+    proc = psutil.Process(pid)
+    proc.kill()
 
 
 def _show_pagination_indicator(total: int, selected: int, panels: list[Panel | str]):
@@ -83,7 +176,9 @@ def _show_pagination_indicator(total: int, selected: int, panels: list[Panel | s
     panels.append(f"  [dim]{indicator}[/dim]")
 
 
-def _render_processes_table(processes: List[Process], selected: int):
+def _render_processes_table(
+    processes: List[Process], selected: int, show_details: bool = False
+):
     max_display = 4
 
     if len(processes) <= max_display:
@@ -107,10 +202,15 @@ def _render_processes_table(processes: List[Process], selected: int):
         indicator = "▐ " if i == display_selected else "  "
 
         port_line = f"{indicator}[bold]Port: {process.port} (PID: {process.pid})[/bold]"
-        user_line = (
-            f"{indicator}[dim]User: {process.user}, Command: {process.command}[/dim]"
-        )
-        content = f"{port_line}\n{user_line}"
+        app_line = f"{indicator}[dim]App: {process.name}, User: {process.user}[/dim]"
+
+        if show_details:
+            # Show clean name AND full command details
+            details_line = f"{indicator}[dim]Details: {process.command}[/dim]"
+            content = f"{port_line}\n{app_line}\n{details_line}"
+        else:
+            # Show just clean app name and user
+            content = f"{port_line}\n{app_line}"
 
         # All items get a panel with no border
         panel = Panel(
@@ -247,16 +347,13 @@ def main(
     refresh_rate: int = typer.Option(
         10, "--refresh-rate", "-r", help="Display refresh rate per second"
     ),
+    details: bool = typer.Option(
+        False, "--details", "-d", help="Show full command details instead of app name"
+    ),
 ):
     console = Console()
     text = _render_title()
     processes: list[Process] = get_processes()
-
-    if sys.platform.startswith("win"):
-        console.print(
-            "[red]Error:[/red] This program is only supported on Unix-like systems."
-        )
-        sys.exit(1)
 
     if port is not None:
         processes = [p for p in processes if p.port == port]
@@ -288,7 +385,7 @@ def main(
             )
 
         with Live(
-            _render_processes_table(processes, selected),
+            _render_processes_table(processes, selected, details),
             console=console,
             refresh_per_second=refresh_rate,
         ) as live:
@@ -298,7 +395,9 @@ def main(
                         is_filtering = False
                         filter_text = ""
                         processes = get_processes()
-                        live.update(_render_processes_table(processes, selected))
+                        live.update(
+                            _render_processes_table(processes, selected, details)
+                        )
                         continue
                     elif ch == key.UP or ch == "k":
                         selected = max(0, selected - 1)
@@ -331,7 +430,8 @@ def main(
                         border_style="magenta",
                     )
                     display = Group(
-                        filter_panel, _render_processes_table(processes, selected)
+                        filter_panel,
+                        _render_processes_table(processes, selected, details),
                     )
                     live.update(display)
                 else:
@@ -348,7 +448,8 @@ def main(
                             border_style="magenta",
                         )
                         display = Group(
-                            filter_panel, _render_processes_table(processes, selected)
+                            filter_panel,
+                            _render_processes_table(processes, selected, details),
                         )
                         live.update(display)
                         continue  # Skip the update at the end of the loop
@@ -359,7 +460,7 @@ def main(
                         # Exit live context to show confirmation view
                         process_to_kill = processes[selected]
                         break
-                    live.update(_render_processes_table(processes, selected))
+                    live.update(_render_processes_table(processes, selected, details))
 
         if process_to_kill is not None:
             _clear_screen()
