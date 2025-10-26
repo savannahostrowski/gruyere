@@ -1,6 +1,8 @@
 import os
 import signal
 import sys
+import threading
+import time
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -254,7 +256,7 @@ def _render_processes_table(
         help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | d: Toggle details | ENTER: Kill | /: Filter | q: Quit [/bold dim]"
 
     process_count = len(processes)
-    count_text = f"  [dim]Displaying [bold #EE6FF8]{process_count}[/bold #EE6FF8] process{'es' if process_count != 1 else ''}[/dim]"
+    count_text = f"  [dim]Displaying [bold {SELECTED_COLOR}]{process_count}[/bold {SELECTED_COLOR}] process{'es' if process_count != 1 else ''}[/dim]"
 
     return Group(count_text, *panels, Panel(help_text, box=box.SIMPLE))
 
@@ -310,9 +312,9 @@ def _colorGrid(x_steps: int, y_steps: int) -> List[List[Style]]:
 def create_filter_panel(filter_text: str) -> Panel:
     """Create the filter input panel."""
     return Panel(
-        f"[bold #EE6FF8]Filter:[/bold #EE6FF8] {filter_text}[blink]_[/blink]",
+        f"[bold {SELECTED_COLOR}]Filter:[/bold {SELECTED_COLOR}] {filter_text}[blink]_[/blink]",
         title="Press BACKSPACE on empty to cancel, ENTER to apply",
-        border_style="#EE6FF8",
+        border_style=SELECTED_COLOR,
     )
 
 
@@ -365,7 +367,7 @@ def _show_confirmation_view(console: Console, process: Process, title: Text) -> 
             f"[bold]User:[/bold] {process.user}\n"
             f"[bold]Command:[/bold] {process.command}\n\n"
             f"[dim]Press Y to confirm, N to cancel.[/dim]",
-            border_style="#EE6FF8",
+            border_style=SELECTED_COLOR,
             expand=False,
         )
     )
@@ -412,9 +414,31 @@ def main(
     filter_text = ""
     is_filtering = False
     running = True
+    last_process_refresh = time.time()
+    process_refresh_interval = 2.0  # Refresh processes every 2 seconds
 
     console.clear()
     console.print(Panel(text, box=box.SIMPLE))
+
+    def get_filtered_processes() -> list[Process]:
+        """Get processes with all filters applied."""
+        all_processes = get_processes()
+
+        # Apply CLI filters
+        if port is not None:
+            all_processes = [p for p in all_processes if p.port == port]
+        if user is not None:
+            all_processes = [p for p in all_processes if p.user == user]
+        if command is not None:
+            all_processes = [
+                p for p in all_processes if command.lower() in p.command.lower()
+            ]
+
+        # Apply interactive filter if active
+        if is_filtering:
+            return apply_filter(filter_text, all_processes)
+        else:
+            return all_processes
 
     while running:
         process_to_kill = None
@@ -428,11 +452,52 @@ def main(
                 Panel(f"[bold]Filtering by user:[/bold] {user}", box=box.SIMPLE)
             )
 
+        # Background thread to refresh processes periodically
+        live_ref = None  # Will be set inside the Live context
+
+        def refresh_processes_loop():
+            nonlocal processes, selected, last_process_refresh
+            while running:
+                time.sleep(0.1)  # Check every 100ms
+                current_time = time.time()
+                if current_time - last_process_refresh >= process_refresh_interval:
+                    processes = get_filtered_processes()
+
+                    # Adjust selection if it's out of bounds
+                    if selected >= len(processes) and processes:
+                        selected = len(processes) - 1
+                    elif not processes:
+                        selected = 0
+
+                    last_process_refresh = current_time
+
+                    # Trigger display update
+                    if live_ref is not None:
+                        if is_filtering:
+                            live_ref.update(
+                                Group(
+                                    create_filter_panel(filter_text),
+                                    _render_processes_table(
+                                        processes, selected, details, is_filtering=True
+                                    ),
+                                )
+                            )
+                        else:
+                            live_ref.update(
+                                _render_processes_table(
+                                    processes, selected, details, is_filtering=False
+                                )
+                            )
+
+        refresh_thread = threading.Thread(target=refresh_processes_loop, daemon=True)
+        refresh_thread.start()
+
         with Live(
             _render_processes_table(processes, selected, details),
             console=console,
             refresh_per_second=refresh_rate,
         ) as live:
+            live_ref = live  # Make live accessible to the thread
             while ch := readkey():
                 needs_update = False
 

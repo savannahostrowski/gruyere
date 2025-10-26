@@ -4,6 +4,7 @@ import pytest
 from rich.panel import Panel
 
 from gruyere.main import (
+    SELECTED_COLOR,
     Process,
     apply_filter,
     create_filter_panel,
@@ -225,13 +226,12 @@ def test_apply_filter_partial_match():
 
 def test_create_filter_panel():
     """Test that filter panel is created with correct styling."""
-    panel: Panel = create_filter_panel("test")
+    panel = create_filter_panel("test")
 
     # Panel should be a Rich Panel object
     assert isinstance(panel, Panel)
 
-    # Check that it uses the brand color
-    assert panel.border_style == "#EE6FF8"
+    assert panel.border_style == SELECTED_COLOR
 
 
 def test_process_sorting_by_port():
