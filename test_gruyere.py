@@ -1,6 +1,7 @@
 import sys
 
-from gruyere import main as gruyere_main
+import pytest
+
 from gruyere.main import Process, extract_app_name, get_processes, parse_port
 
 
@@ -81,7 +82,7 @@ def test_combined_filtering():
     assert len(filtered) == 1
     assert filtered[0].pid == 1234
 
-
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS-specific test")
 def test_extract_app_name_from_macos_app():
     """Test extracting app names from macOS .app bundles."""
     # Test Visual Studio Code
@@ -95,6 +96,21 @@ def test_extract_app_name_from_macos_app():
     # Test app with spaces
     cmd = "/Applications/Elgato Camera Hub.app/Contents/MacOS/Camera Hub --background"
     assert extract_app_name(cmd) == "Elgato Camera Hub"
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific test")
+def test_extract_app_name_from_windows_executable():
+    """Test extracting names from Windows executables."""
+    # Test Visual Studio Code
+    cmd = r"C:\Program Files\Microsoft VS Code\Code.exe --disable-extensions"
+    assert extract_app_name(cmd) == "Code"
+
+    # Test Google Chrome
+    cmd = r"C:\Program Files\Google\Chrome\Application\chrome.exe --profile-directory=Default"
+    assert extract_app_name(cmd) == "chrome"
+
+    # Test app with spaces
+    cmd = r"C:\Program Files\Some App\app.exe /arg1 /arg2"
+    assert extract_app_name(cmd) == "app"
 
 
 def test_extract_app_name_from_regular_executable():
