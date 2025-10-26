@@ -1,6 +1,6 @@
 [project]
 name = "gruyere"
-version = "0.0.1"
+dynamic = ["version"]
 description = "A tiny program for viewing and killing processes on ports"
 readme = "README.md"
 authors = [
@@ -11,8 +11,9 @@ requires-python = ">=3.12"
 dependencies = [
     "readchar>=4.2.1",
     "rich>=14.2.0",
+    "typer>=0.15.1",
 ]
-keywords = ["ports", "processes", "kill", "lsof", "tui"]
+keywords = ["ports", "processes", "tui"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -27,12 +28,12 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/gruyere"
-Repository = "https://github.com/yourusername/gruyere"
-Issues = "https://github.com/yourusername/gruyere/issues"
+Homepage = "https://github.com/savannahostrowski/gruyere"
+Repository = "https://github.com/savannahostrowski/gruyere"
+Issues = "https://github.com/savannahostrowski/gruyere/issues"
 
 [project.scripts]
-gruyere = "gruyere.main:main"
+gruyere = "gruyere.main:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -48,10 +49,14 @@ exclude = [
     "/uv.lock",
 ]
 
+[tool.hatch.version]
+path = "gruyere/__init__.py"
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
     "pyright>=1.1.407",
+    "pytest>=8.4.2",
     "ruff>=0.14.2",
 ]
 

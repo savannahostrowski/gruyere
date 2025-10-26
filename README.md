@@ -2,15 +2,7 @@
 
 A tiny, beautiful TUI program for viewing and killing processes listening on ports.
 
-![Gruyere Screenshot](gruyere.gif)
-
-## Implementations
-
-This repository contains two implementations of Gruyere:
-
-### Python Version (`gruyere-py/`)
-
-The Python implementation with a rich, colorful TUI.
+![Gruyère Screenshot](gruyere.gif)
 
 **Install:**
 ```bash
@@ -28,21 +20,6 @@ gruyere
 
 See [gruyere-py/README.md](gruyere-py/README.md) for more details.
 
-### Go Version (`go/`)
-
-The Go implementation (legacy).
-
-**Build:**
-```bash
-cd go
-go build -o gruyere
-```
-
-**Usage:**
-```bash
-./gruyere
-```
-
 ## Features
 
 - 🎨 Beautiful gradient UI with rich colors
@@ -54,6 +31,9 @@ go build -o gruyere
 ## Requirements
 
 - macOS or Linux (uses `lsof`)
+
+> Note: An earlier version of this TUI was written in Go. You can find the deprecated source code in `go/`.
+
 
 ## License
 

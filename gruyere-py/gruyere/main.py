@@ -4,6 +4,7 @@ import subprocess
 import sys
 from typing import List, Optional
 
+import typer
 from readchar import readkey, key
 from rich.color import Color
 from rich.console import Console, Group
@@ -26,6 +27,8 @@ SELECTED_COLOR = Style(color="#EE6FF8", bold=True)
 
 signal.signal(signal.SIGINT, lambda _, __: sys.exit(0))
 
+app = typer.Typer()
+
 
 def _clear_screen():
     """Clear the entire screen and scroll buffer using ANSI escape codes."""
@@ -33,14 +36,15 @@ def _clear_screen():
     sys.stdout.flush()
 
 
-def _parse_port(port_str: str) -> int | str:
+def parse_port(port_str: str) -> int | str:
+    """Parse a port string into an integer if possible, otherwise return as-is."""
     try:
         return int(port_str)
     except (ValueError, IndexError):
         return port_str
 
 
-def _get_processes() -> list[Process]:
+def get_processes() -> list[Process]:
     raw_processes = subprocess.run(
         ["lsof", "-i", "-P", "-n", "-sTCP:LISTEN"], capture_output=True, text=True
     )
@@ -52,14 +56,14 @@ def _get_processes() -> list[Process]:
             pid = int(parts[1])
             user = parts[2]
             command = parts[0]
-            port = _parse_port(parts[8].split(":")[-1])
+            port = parse_port(parts[8].split(":")[-1])
             process = Process(pid=pid, port=port, user=user, command=command)
             processes.append(process)
 
     return processes
 
 
-def _kill_process(pid: int):
+def kill_process(pid: int):
     subprocess.run(["kill", "-9", str(pid)])
 
 
@@ -229,10 +233,40 @@ def _show_confirmation_view(console: Console, process: Process, title: Text) -> 
             return False
 
 
-def main():
+@app.command()
+def main(
+    port: Optional[int] = typer.Option(
+        None, "--port", "-p", help="Filter by specific port number"
+    ),
+    user: Optional[str] = typer.Option(
+        None, "--user", "-u", help="Filter by specific user"
+    ),
+    command: Optional[str] = typer.Option(
+        None, "--command", "-c", help="Filter by command substring"
+    ),
+    refresh_rate: int = typer.Option(
+        10, "--refresh-rate", "-r", help="Display refresh rate per second"
+    ),
+):
     console = Console()
     text = _render_title()
-    processes = _get_processes()
+    processes: list[Process] = get_processes()
+
+    if sys.platform.startswith("win"):
+        console.print(
+            "[red]Error:[/red] This program is only supported on Unix-like systems."
+        )
+        sys.exit(1)
+
+    if port is not None:
+        processes = [p for p in processes if p.port == port]
+
+    if user is not None:
+        processes = [p for p in processes if p.user == user]
+
+    if command is not None:
+        processes = [p for p in processes if command.lower() in p.command.lower()]
+
     selected = 0
     filter_text = ""
     is_filtering = False
@@ -244,17 +278,26 @@ def main():
     while running:
         process_to_kill = None
 
+        if port is not None:
+            console.print(
+                Panel(f"[bold]Filtering by port:[/bold] {port}", box=box.SIMPLE)
+            )
+        if user is not None:
+            console.print(
+                Panel(f"[bold]Filtering by user:[/bold] {user}", box=box.SIMPLE)
+            )
+
         with Live(
             _render_processes_table(processes, selected),
             console=console,
-            refresh_per_second=10,
+            refresh_per_second=refresh_rate,
         ) as live:
             while ch := readkey():
                 if is_filtering:
                     if ch == "/":
                         is_filtering = False
                         filter_text = ""
-                        processes = _get_processes()
+                        processes = get_processes()
                         live.update(_render_processes_table(processes, selected))
                         continue
                     elif ch == key.UP or ch == "k":
@@ -265,7 +308,7 @@ def main():
                         filter_text = filter_text[:-1]
                         processes = [
                             p
-                            for p in _get_processes()
+                            for p in get_processes()
                             if filter_text.lower() in p.command.lower()
                         ]
                         selected = 0
@@ -277,7 +320,7 @@ def main():
                         filter_text += ch
                         processes = [
                             p
-                            for p in _get_processes()
+                            for p in get_processes()
                             if filter_text.lower() in p.command.lower()
                         ]
                         selected = 0
@@ -323,8 +366,8 @@ def main():
 
         if running and process_to_kill is not None:
             if _show_confirmation_view(console, process_to_kill, text):
-                _kill_process(process_to_kill.pid)
-                processes = _get_processes()
+                kill_process(process_to_kill.pid)
+                processes = get_processes()
                 selected = min(selected, len(processes) - 1)
 
             _clear_screen()
