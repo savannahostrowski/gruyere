@@ -254,7 +254,7 @@ def _render_processes_table(
         help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | d: Toggle details | ENTER: Kill | /: Filter | q: Quit [/bold dim]"
 
     process_count = len(processes)
-    count_text = f"[dim]Displaying [bold #EE6FF8]{process_count}[/bold #EE6FF8] process{'es' if process_count != 1 else ''}[/dim]"
+    count_text = f"  [dim]Displaying [bold #EE6FF8]{process_count}[/bold #EE6FF8] process{'es' if process_count != 1 else ''}[/dim]"
 
     return Group(count_text, *panels, Panel(help_text, box=box.SIMPLE))
 
