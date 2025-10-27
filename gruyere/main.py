@@ -4,7 +4,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import psutil
 import typer
@@ -94,20 +94,20 @@ def get_processes() -> list[Process]:
     processes: list[Process] = []
     try:
         # Get all IPv4 and IPv6 connections
-        connections: list[psutil._common.sconn] = []  # type: ignore[misc]
-        connections.extend(psutil.net_connections(kind="inet"))  # type: ignore[misc]
-        connections.extend(psutil.net_connections(kind="inet6"))  # type: ignore[misc]
+        connections: list[Any] = []
+        connections.extend(psutil.net_connections(kind="inet"))
+        connections.extend(psutil.net_connections(kind="inet6"))
         for conn in connections:
             # Only consider listening connections with a valid PID
             if (
-                conn.laddr  # type: ignore[misc]
-                and conn.status == psutil.CONN_LISTEN  # type: ignore[misc]
-                and conn.pid is not None  # type: ignore[misc]
+                conn.laddr
+                and conn.status == psutil.CONN_LISTEN
+                and conn.pid is not None
             ):
-                pid = conn.pid  # type: ignore[misc]
-                port = parse_port(str(conn.laddr.port))  # type: ignore[misc]
+                pid = conn.pid
+                port = parse_port(str(conn.laddr.port))
                 try:
-                    proc = psutil.Process(pid)  # type: ignore[misc]
+                    proc = psutil.Process(pid)
                     user = proc.username()
                     command = (
                         " ".join(proc.cmdline()) if proc.cmdline() else proc.name()
@@ -118,20 +118,20 @@ def get_processes() -> list[Process]:
 
                 name = extract_app_name(command)
                 processes.append(
-                    Process(pid=pid, port=port, user=user, command=command, name=name)  # type: ignore[misc]
+                    Process(pid=pid, port=port, user=user, command=command, name=name)
                 )
     except psutil.AccessDenied:
         # On macOS, net_connections() requires elevated privileges
         # Fall back to checking each process individually
-        for proc in psutil.process_iter(["pid"]):  # type: ignore[misc]
+        for proc in psutil.process_iter(["pid"]):
             try:
                 pid = proc.info["pid"]
-                proc_connections: list[psutil._common.pconn] = []  # type: ignore[misc]
-                proc_connections.extend(proc.net_connections(kind="inet"))  # type: ignore[misc]
-                proc_connections.extend(proc.net_connections(kind="inet6"))  # type: ignore[misc]
+                proc_connections: list[Any] = []
+                proc_connections.extend(proc.net_connections(kind="inet"))
+                proc_connections.extend(proc.net_connections(kind="inet6"))
                 for conn in proc_connections:
-                    if conn.laddr and conn.status == psutil.CONN_LISTEN:  # type: ignore[misc]
-                        port = parse_port(str(conn.laddr.port))  # type: ignore[misc]
+                    if conn.laddr and conn.status == psutil.CONN_LISTEN:
+                        port = parse_port(str(conn.laddr.port))
                         try:
                             user = proc.username()
                             # get last part of command line or name if empty

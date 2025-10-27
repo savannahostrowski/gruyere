@@ -21,7 +21,7 @@ repos:
         stages: [commit]
       - id: pyright
         name: pyright
-        entry: uv run --frozen --group dev pyright gruyere/
+        entry: uv run pyright gruyere/
         language: system
         pass_filenames: false
         types: [python]
