@@ -19,3 +19,10 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [commit]
+      - id: pyright
+        name: pyright
+        entry: uv run --frozen --group dev pyright gruyere/
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [commit]
