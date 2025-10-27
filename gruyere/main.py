@@ -10,7 +10,7 @@ import psutil
 import typer
 from readchar import key, readkey
 from rich import box
-from rich.color import Color
+from rich.color import Color, blend_rgb
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
@@ -28,6 +28,7 @@ class Process:
 
 
 SELECTED_COLOR = Style(color="#EE6FF8", bold=True)
+MAX_DISPLAY_PROCESSES = 4
 
 signal.signal(signal.SIGINT, lambda _, __: sys.exit(0))
 
@@ -90,11 +91,14 @@ def extract_app_name(command: str) -> str:
 
 
 def get_processes() -> list[Process]:
-    """Get a list of processes with their associated ports."""
     processes: list[Process] = []
     try:
-        connections = psutil.net_connections(kind="inet")
+        # Get all IPv4 and IPv6 connections
+        connections: list[psutil._common.sconn] = []  # type: ignore[misc]
+        connections.extend(psutil.net_connections(kind="inet"))
+        connections.extend(psutil.net_connections(kind="inet6"))
         for conn in connections:
+            # Only consider listening connections with a valid PID
             if (
                 conn.laddr
                 and conn.status == psutil.CONN_LISTEN
@@ -122,7 +126,9 @@ def get_processes() -> list[Process]:
         for proc in psutil.process_iter(["pid"]):  # type: ignore[misc]
             try:
                 pid = proc.info["pid"]
-                proc_connections = proc.net_connections(kind="inet")
+                proc_connections: list[psutil._common.pconn] = []  # type: ignore[misc]
+                proc_connections.extend(proc.net_connections(kind="inet"))
+                proc_connections.extend(proc.net_connections(kind="inet6"))
                 for conn in proc_connections:
                     if conn.laddr and conn.status == psutil.CONN_LISTEN:
                         port = parse_port(str(conn.laddr.port))
@@ -167,7 +173,7 @@ def _show_pagination_indicator(total: int, selected: int, panels: list[Panel | s
     if total <= len(panels):
         return
 
-    page = selected // len(panels) % 4
+    page = selected // MAX_DISPLAY_PROCESSES
     indicator = ""
     for i in range((total + len(panels) - 1) // len(panels)):
         if i == page:
@@ -184,40 +190,39 @@ def _render_processes_table(
     show_details: bool = False,
     is_filtering: bool = False,
 ):
-    max_display = 4
-
     if not processes:
-        no_results_panel = Panel(
-            "[dim]No processes found matching your filter.\n\nPress BACKSPACE to clear filter or ENTER to exit filter mode.[/dim]",
-            box=box.SIMPLE,
-            style="dim",
-        )
         if is_filtering:
+            no_results_panel = Panel(
+                "[dim]No processes found matching your filter.\n\nPress BACKSPACE to clear filter or ENTER to exit filter mode.[/dim]",
+                box=box.SIMPLE,
+                style="dim",
+            )
             help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | BACKSPACE: Clear | ENTER: Exit filter [/bold dim]"
-
             return Group(no_results_panel, Panel(help_text, box=box.SIMPLE))
         else:
-            help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | d: Toggle details | ENTER: Kill | /: Filter | q: Quit [/bold dim]"
+            no_results_panel = Panel(
+                "[dim]No processes found.\n\nPress BACKSPACE to clear CLI filters.[/dim]",
+                box=box.SIMPLE,
+                style="dim",
+            )
+            help_text = "[bold dim]Commands: BACKSPACE: Clear filters | /: Filter | q: Quit [/bold dim]"
             return Group(
-                f"[dim]Displaying 0 processes[/dim]",
+                f"  [dim]Displaying 0 processes[/dim]",
                 no_results_panel,
                 Panel(help_text, box=box.SIMPLE),
             )
 
-    if len(processes) <= max_display:
+    if len(processes) <= MAX_DISPLAY_PROCESSES:
         display_processes = processes
         display_selected = selected
     else:
-        if selected < max_display // 2:
-            display_processes = processes[:max_display]
-            display_selected = selected
-        elif selected >= len(processes) - max_display // 2:
-            display_processes = processes[-max_display:]
-            display_selected = selected - (len(processes) - max_display)
-        else:
-            start = selected - max_display // 2
-            display_processes = processes[start : start + max_display]
-            display_selected = max_display // 2
+        # We need to paginate
+        page = selected // MAX_DISPLAY_PROCESSES
+        index = selected % MAX_DISPLAY_PROCESSES
+        start = page * MAX_DISPLAY_PROCESSES
+        end = start + MAX_DISPLAY_PROCESSES
+        display_processes = processes[start:end]
+        display_selected = index
 
     panels: list[Panel | str] = []
     for i, process in enumerate(display_processes):
@@ -244,7 +249,7 @@ def _render_processes_table(
         panels.append(panel)
 
     # Add empty panels to always show 4 slots
-    while len(panels) < max_display:
+    while len(panels) < MAX_DISPLAY_PROCESSES:
         empty_panel = Panel("\n", box=box.SIMPLE, style="")
         panels.append(empty_panel)
 
@@ -262,51 +267,31 @@ def _render_processes_table(
 
 
 def _colorGrid(x_steps: int, y_steps: int) -> List[List[Style]]:
-    """
-    Generate a 2D grid of gradient colors using bilinear interpolation.
-    Via https://github.com/charmbracelet/lipgloss/blob/776c15f0da16d2b1058a079ec6a08a2e1170d721/examples/layout/main.go#L338
-    """
-    x0y0 = Color.parse("#EE6FF8")
-    x1y0 = Color.parse("#EDFF82")
-    x0y1 = Color.parse("#643AFF")
-    x1y1 = Color.parse("#14F9D5")
+    """Generate a 2D grid of gradient colors using bilinear interpolation."""
+    x0y0, x1y0 = (
+        Color.parse("#EE6FF8").get_truecolor(),
+        Color.parse("#EDFF82").get_truecolor(),
+    )
+    x0y1, x1y1 = (
+        Color.parse("#643AFF").get_truecolor(),
+        Color.parse("#14F9D5").get_truecolor(),
+    )
 
-    # Get RGB triplets
-    x0y0_rgb = x0y0.get_truecolor()
-    x1y0_rgb = x1y0.get_truecolor()
-    x0y1_rgb = x0y1.get_truecolor()
-    x1y1_rgb = x1y1.get_truecolor()
-
-    grid: List[List[Style]] = []
-    for y in range(y_steps):
-        row: List[Style] = []
-        for x in range(x_steps):
-            rx = x / (x_steps - 1) if x_steps > 1 else 0
-            ry = y / (y_steps - 1) if y_steps > 1 else 0
-
-            r = int(
-                (1 - rx) * (1 - ry) * x0y0_rgb.red
-                + rx * (1 - ry) * x1y0_rgb.red
-                + (1 - rx) * ry * x0y1_rgb.red
-                + rx * ry * x1y1_rgb.red
+    return [
+        [
+            Style(
+                color=Color.from_triplet(
+                    blend_rgb(
+                        blend_rgb(x0y0, x1y0, x / (x_steps - 1) if x_steps > 1 else 0),
+                        blend_rgb(x0y1, x1y1, x / (x_steps - 1) if x_steps > 1 else 0),
+                        y / (y_steps - 1) if y_steps > 1 else 0,
+                    )
+                )
             )
-            g = int(
-                (1 - rx) * (1 - ry) * x0y0_rgb.green
-                + rx * (1 - ry) * x1y0_rgb.green
-                + (1 - rx) * ry * x0y1_rgb.green
-                + rx * ry * x1y1_rgb.green
-            )
-            b = int(
-                (1 - rx) * (1 - ry) * x0y0_rgb.blue
-                + rx * (1 - ry) * x1y0_rgb.blue
-                + (1 - rx) * ry * x0y1_rgb.blue
-                + rx * ry * x1y1_rgb.blue
-            )
-
-            row.append(Style(color=Color.from_rgb(r, g, b)))
-        grid.append(row)
-
-    return grid
+            for x in range(x_steps)
+        ]
+        for y in range(y_steps)
+    ]
 
 
 def create_filter_panel(filter_text: str) -> Panel:
@@ -399,38 +384,34 @@ def main(
 ):
     console = Console()
     text = _render_title()
-    processes: list[Process] = get_processes()
 
-    if port is not None:
-        processes = [p for p in processes if p.port == port]
-
-    if user is not None:
-        processes = [p for p in processes if p.user == user]
-
-    if command is not None:
-        processes = [p for p in processes if command.lower() in p.command.lower()]
+    # Make CLI filter parameters mutable
+    cli_port = port
+    cli_user = user
+    cli_command = command
 
     selected = 0
     filter_text = ""
     is_filtering = False
     running = True
     last_process_refresh = time.time()
-    process_refresh_interval = 2.0  # Refresh processes every 2 seconds
+    process_refresh_interval = 2.0
 
     console.clear()
     console.print(Panel(text, box=box.SIMPLE))
 
     def get_filtered_processes() -> list[Process]:
         """Get processes with all filters applied."""
+        nonlocal cli_port, cli_user, cli_command
         all_processes = get_processes()
 
-        if port is not None:
-            all_processes = [p for p in all_processes if p.port == port]
-        if user is not None:
-            all_processes = [p for p in all_processes if p.user == user]
-        if command is not None:
+        if cli_port is not None:
+            all_processes = [p for p in all_processes if p.port == cli_port]
+        if cli_user is not None:
+            all_processes = [p for p in all_processes if p.user == cli_user]
+        if cli_command is not None:
             all_processes = [
-                p for p in all_processes if command.lower() in p.command.lower()
+                p for p in all_processes if cli_command.lower() in p.command.lower()
             ]
 
         # Apply interactive filter if active
@@ -439,16 +420,19 @@ def main(
         else:
             return all_processes
 
+    # Initialize processes
+    processes = get_filtered_processes()
+
     while running:
         process_to_kill = None
 
-        if port is not None:
+        if cli_port is not None:
             console.print(
-                Panel(f"[bold]Filtering by port:[/bold] {port}", box=box.SIMPLE)
+                Panel(f"[bold]Filtering by port:[/bold] {cli_port}", box=box.SIMPLE)
             )
-        if user is not None:
+        if cli_user is not None:
             console.print(
-                Panel(f"[bold]Filtering by user:[/bold] {user}", box=box.SIMPLE)
+                Panel(f"[bold]Filtering by user:[/bold] {cli_user}", box=box.SIMPLE)
             )
 
         # Background thread to refresh processes periodically
@@ -507,7 +491,7 @@ def main(
                     selected = min(len(processes) - 1, selected + 1)
                     needs_update = True
 
-                # Handle filtering mode
+                # This block handles filtering mode and its specific keys
                 if is_filtering and not needs_update:
                     if ch == key.BACKSPACE:
                         if filter_text:
@@ -516,9 +500,19 @@ def main(
                             processes = apply_filter(filter_text, get_processes())
                             selected = 0
                         else:
-                            # Backspace on empty filter exits filter mode
+                            # Backspace on empty filter exits filter mode and clears CLI filters if no results
                             is_filtering = False
-                            processes = get_processes()
+                            if not processes and (
+                                cli_port is not None
+                                or cli_user is not None
+                                or cli_command is not None
+                            ):
+                                # No results with CLI filters - clear them and show all processes
+                                cli_port = None
+                                cli_user = None
+                                cli_command = None
+                            processes = get_filtered_processes()
+                            selected = 0
                             live.update(
                                 _render_processes_table(
                                     processes, selected, details, is_filtering=False
@@ -575,9 +569,27 @@ def main(
                         running = False
                         break
                     elif ch == key.ENTER:
-                        # Exit live context to show confirmation view
-                        process_to_kill = processes[selected]
-                        break
+                        # Exit live context to show confirmation view (only if processes exist)
+                        if processes:
+                            process_to_kill = processes[selected]
+                            break
+                    elif ch == key.BACKSPACE:
+                        # Backspace in normal mode clears CLI filters if no results
+                        if not processes and (
+                            cli_port is not None
+                            or cli_user is not None
+                            or cli_command is not None
+                        ):
+                            cli_port = None
+                            cli_user = None
+                            cli_command = None
+                            processes = get_filtered_processes()
+                            selected = 0
+                            live.update(
+                                _render_processes_table(
+                                    processes, selected, details, is_filtering=False
+                                )
+                            )
                     # Ignore other keys
 
                 # Update display for navigation in normal mode
