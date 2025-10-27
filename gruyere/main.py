@@ -158,9 +158,18 @@ def get_processes() -> list[Process]:
                 # Skip processes we can't access
                 continue
 
+    # Deduplicate processes by (pid, port) - same process can listen on IPv4 and IPv6
+    seen: set[tuple[int, int | str]] = set()
+    unique_processes: list[Process] = []
+    for p in processes:
+        key = (p.pid, p.port)
+        if key not in seen:
+            seen.add(key)
+            unique_processes.append(p)
+
     # Sort processes by port number (numeric ports first, then strings)
-    processes.sort(key=lambda p: (isinstance(p.port, str), p.port))
-    return processes
+    unique_processes.sort(key=lambda p: (isinstance(p.port, str), p.port))
+    return unique_processes
 
 
 def kill_process(pid: int):
