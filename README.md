@@ -40,7 +40,7 @@ gruyere --user username    # Filter by specific user
 
 ## Requirements
 
-- macOS, Linux, or Windows
+- macOS, Linux, or Windows (very experimental)
 - Python 3.13+
 
 **Note:** On macOS, the program will run without elevated privileges but will only show processes owned by the current user. For system-wide process information, run with `sudo`. On Windows, you may need to run as Administrator to see all processes.
