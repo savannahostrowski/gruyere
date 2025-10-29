@@ -1,6 +1,7 @@
 import os
 import signal
 import sys
+import textwrap
 import threading
 import time
 from dataclasses import dataclass
@@ -235,19 +236,41 @@ def _render_processes_table(
 
     panels: list[Panel | str] = []
     for i, process in enumerate(display_processes):
-        # Add vertical indicator for selected item
-        indicator = "▐ " if i == display_selected else "  "
+        indicator = "▐" if i == display_selected else " "
 
-        port_line = f"{indicator}[bold]Port: {process.port} (PID: {process.pid})[/bold]"
-        app_line = f"{indicator}[dim]App: {process.name}, User: {process.user}[/dim]"
+        port_line = f"[bold]Port: {process.port} (PID: {process.pid})[/bold]"
+        app_line = f"[dim]App: {process.name}, User: {process.user}[/dim]"
 
         if show_details:
-            # Show clean name AND full command details
-            details_line = f"{indicator}[dim]Details: {process.command}[/dim]"
-            content = f"{port_line}\n{app_line}\n{details_line}"
+            max_width = 100  # Account for indicator and padding
+            indent = " " * 9  # Length of "Details: "
+
+            # Use textwrap for word-aware wrapping
+            wrapped_lines = textwrap.wrap(
+                process.command,
+                width=max_width - len(indent),
+                break_long_words=True,
+                break_on_hyphens=True,
+            )
+
+            wrapped_details: list[str] = []
+            if wrapped_lines:
+                # First line with "Details: " prefix
+                wrapped_details.append(f"[dim]Details: {wrapped_lines[0]}[/dim]")
+                # Subsequent lines indented
+                for line in wrapped_lines[1:]:
+                    wrapped_details.append(f"[dim]{indent}{line}[/dim]")
+            else:
+                # Empty command
+                wrapped_details.append(f"[dim]Details: [/dim]")
+
+            lines = [port_line, app_line] + wrapped_details
         else:
             # Show just clean app name and user
-            content = f"{port_line}\n{app_line}"
+            lines = [port_line, app_line]
+
+        # Add indicator to each line to span the full height
+        content = "\n".join(f"{indicator} {line}" for line in lines)
 
         # All items get a panel with no border
         panel = Panel(
