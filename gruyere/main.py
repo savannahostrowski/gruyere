@@ -339,7 +339,12 @@ def apply_filter(filter_text: str, all_processes: list[Process]) -> list[Process
     """Filter processes by name."""
     if not filter_text:
         return all_processes
-    return [p for p in all_processes if filter_text.lower() in p.name.lower()]
+    lower_filter = filter_text.lower()
+    return [
+        p
+        for p in all_processes
+        if lower_filter in p.name.lower() or lower_filter in str(p.port).lower()
+    ]
 
 
 def _render_title():
