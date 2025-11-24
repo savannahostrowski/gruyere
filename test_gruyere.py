@@ -72,6 +72,11 @@ def test_user_filtering():
     assert len(filtered) == 2
     assert all(p.user == "savannah" for p in filtered)
 
+    # Filter by port 3000
+    filtered_port = [p for p in mock_processes if p.port == 3000]
+    assert len(filtered_port) == 1
+    assert filtered_port[0].pid == 5678
+
 
 def test_combined_filtering():
     """Test filtering by both port and user."""
