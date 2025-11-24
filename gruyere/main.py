@@ -5,7 +5,7 @@ import textwrap
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional
+from typing import Any, List, Optional
 
 import psutil
 import typer
