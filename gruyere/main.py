@@ -290,7 +290,7 @@ def _render_processes_table(
     if is_filtering:
         help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | BACKSPACE: Clear | ENTER: Select [/bold dim]"
     else:
-        help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | d: Toggle details | ENTER: Kill | /: Filter | q: Quit [/bold dim]"
+        help_text = "[bold dim]Commands: ↑/k: Up | ↓/j: Down | d: Toggle details | ENTER: Kill | /: Filter | BACKSPACE: Clear filters | q: Quit [/bold dim]"
 
     process_count = len(processes)
     count_text = f"  [dim]Displaying [bold {SELECTED_COLOR}]{process_count}[/bold {SELECTED_COLOR}] process{'es' if process_count != 1 else ''}[/dim]"
@@ -330,7 +330,7 @@ def create_filter_panel(filter_text: str) -> Panel:
     """Create the filter input panel."""
     return Panel(
         f"[bold {SELECTED_COLOR}]Filter:[/bold {SELECTED_COLOR}] {filter_text}[blink]_[/blink]",
-        title="Press BACKSPACE on empty to cancel, ENTER to apply",
+        title="Press BACKSPACE on empty to clear filters, ENTER to select",
         border_style=SELECTED_COLOR,
     )
 
@@ -460,17 +460,25 @@ def main(
     # Initialize processes
     processes = get_filtered_processes()
 
-    while running:
-        process_to_kill = None
-
+    def render_view() -> Group:
+        panels: list[Panel | Group] = []
         if cli_port is not None:
-            console.print(
+            panels.append(
                 Panel(f"[bold]Filtering by port:[/bold] {cli_port}", box=box.SIMPLE)
             )
         if cli_user is not None:
-            console.print(
+            panels.append(
                 Panel(f"[bold]Filtering by user:[/bold] {cli_user}", box=box.SIMPLE)
             )
+        if is_filtering:
+            panels.append(create_filter_panel(filter_text))
+        panels.append(
+            _render_processes_table(processes, selected, details, is_filtering)
+        )
+        return Group(*panels)
+
+    while running:
+        process_to_kill = None
 
         # Background thread to refresh processes periodically
         live_ref = None  # Will be set inside the Live context
@@ -493,27 +501,13 @@ def main(
 
                     # Trigger display update
                     if live_ref is not None:
-                        if is_filtering:
-                            live_ref.update(
-                                Group(
-                                    create_filter_panel(filter_text),
-                                    _render_processes_table(
-                                        processes, selected, details, is_filtering=True
-                                    ),
-                                )
-                            )
-                        else:
-                            live_ref.update(
-                                _render_processes_table(
-                                    processes, selected, details, is_filtering=False
-                                )
-                            )
+                        live_ref.update(render_view())
 
         refresh_thread = threading.Thread(target=refresh_processes_loop, daemon=True)
         refresh_thread.start()
 
         with Live(
-            _render_processes_table(processes, selected, details),
+            render_view(),
             console=console,
             refresh_per_second=refresh_rate,
         ) as live:
@@ -534,27 +528,17 @@ def main(
                         if filter_text:
                             # Backspace removes a character
                             filter_text = filter_text[:-1]
-                            processes = apply_filter(filter_text, get_processes())
-                            selected = 0
-                        else:
-                            # Backspace on empty filter exits filter mode and clears CLI filters if no results
-                            is_filtering = False
-                            if not processes and (
-                                cli_port is not None
-                                or cli_user is not None
-                                or cli_command is not None
-                            ):
-                                # No results with CLI filters - clear them and show all processes
-                                cli_port = None
-                                cli_user = None
-                                cli_command = None
                             processes = get_filtered_processes()
                             selected = 0
-                            live.update(
-                                _render_processes_table(
-                                    processes, selected, details, is_filtering=False
-                                )
-                            )
+                        else:
+                            # Backspace on empty input clears all filters and exits.
+                            is_filtering = False
+                            cli_port = None
+                            cli_user = None
+                            cli_command = None
+                            processes = get_filtered_processes()
+                            selected = 0
+                            live.update(render_view())
                             continue
                     elif ch == key.ENTER:
                         is_filtering = False
@@ -562,46 +546,30 @@ def main(
                             # Process selected - will show confirmation
                             process_to_kill = processes[selected]
                         else:
-                            # No matches - restore all processes
+                            # No matches - restore the CLI-filtered processes.
                             process_to_kill = None
-                            processes = get_processes()
+                            processes = get_filtered_processes()
                             selected = 0
                         break
                     elif len(ch) == 1 and ch.isprintable():
                         filter_text += ch
-                        processes = apply_filter(filter_text, get_processes())
+                        processes = get_filtered_processes()
                         selected = 0
 
                 # Update display in filtering mode (after handling all filtering keys or navigation)
                 if is_filtering:
-                    display = Group(
-                        create_filter_panel(filter_text),
-                        _render_processes_table(
-                            processes, selected, details, is_filtering=True
-                        ),
-                    )
-                    live.update(display)
+                    live.update(render_view())
 
                 # Handle normal mode
                 elif not needs_update:
                     # Only handle non-navigation keys in normal mode
                     if ch == "d":
                         details = not details
-                        live.update(
-                            _render_processes_table(
-                                processes, selected, details, is_filtering=False
-                            )
-                        )
+                        live.update(render_view())
                     elif ch == "/":
                         is_filtering = True
                         filter_text = ""
-                        display = Group(
-                            create_filter_panel(filter_text),
-                            _render_processes_table(
-                                processes, selected, details, is_filtering=True
-                            ),
-                        )
-                        live.update(display)
+                        live.update(render_view())
                     elif ch == "q":
                         running = False
                         break
@@ -611,8 +579,8 @@ def main(
                             process_to_kill = processes[selected]
                             break
                     elif ch == key.BACKSPACE:
-                        # Backspace in normal mode clears CLI filters if no results
-                        if not processes and (
+                        # Clear CLI filters even when they have matching results.
+                        if (
                             cli_port is not None
                             or cli_user is not None
                             or cli_command is not None
@@ -622,20 +590,12 @@ def main(
                             cli_command = None
                             processes = get_filtered_processes()
                             selected = 0
-                            live.update(
-                                _render_processes_table(
-                                    processes, selected, details, is_filtering=False
-                                )
-                            )
+                            live.update(render_view())
                     # Ignore other keys
 
                 # Update display for navigation in normal mode
                 elif needs_update:
-                    live.update(
-                        _render_processes_table(
-                            processes, selected, details, is_filtering=False
-                        )
-                    )
+                    live.update(render_view())
 
         if running:
             if process_to_kill is not None:
@@ -643,7 +603,7 @@ def main(
                 _clear_screen()
                 if _show_confirmation_view(console, process_to_kill, text):
                     kill_process(process_to_kill.pid)
-                    processes = get_processes()
+                    processes = get_filtered_processes()
                     selected = min(selected, len(processes) - 1)
 
                 _clear_screen()
