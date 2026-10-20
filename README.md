@@ -25,7 +25,8 @@ gruyere --user username    # Filter by specific user
 
 - `↑`/`k`: Move up
 - `↓`/`j`: Move down
-- `/`: Filter processes
+- `/`: Filter processes within the active CLI filters
+- `BACKSPACE`: Clear CLI filters in normal mode. While filtering, delete a character; on empty input, clear CLI filters and exit filter mode.
 - `ENTER`: Kill selected process
 - `q`: Quit
 
